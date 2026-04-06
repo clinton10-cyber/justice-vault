@@ -1,7 +1,9 @@
-Flask==2.3.3
-python-dotenv==1.0.0
-Pillow==10.0.0
-user-agents==2.2.0
-Werkzeug==2.3.7
-psycopg2-binary==2.9.9
-Flask-SQLAlchemy==3.0.5
+Flask
+python-dotenv
+Pillow
+user-agents
+Werkzeug
+psycopg2-binary
+Flask-SQLAlchemy
+gunicorn
+boto3
