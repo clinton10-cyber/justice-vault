@@ -10,7 +10,9 @@
             <a href="{{ url_for('admin_logout') }}" style="padding: 10px 20px; background: #f56565; color: white; border-radius: 10px; text-decoration: none;">Logout</a>
         </div>
     </div>
+    
     <div style="max-width: 1400px; margin: 0 auto; padding: 24px;">
+        <!-- Stats -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 32px;">
             <div style="background: white; border-radius: 16px; padding: 20px;">
                 <p style="color: #718096;">Total Users</p>
@@ -30,25 +32,21 @@
             </div>
         </div>
         
+        <!-- Quick Actions -->
         <div style="background: white; border-radius: 16px; padding: 24px; margin-bottom: 32px;">
             <h2 style="margin-bottom: 20px;"><i class="fas fa-plus-circle"></i> Quick Actions</h2>
             <form method="POST" action="{{ url_for('create_pin') }}" style="display: inline-block;">
-                <button type="submit" style="padding: 12px 24px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 10px; cursor: pointer;">Generate PIN</button>
+                <button type="submit" style="padding: 12px 24px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 10px; cursor: pointer;">Generate New PIN</button>
             </form>
-            <button onclick="document.getElementById('uploadModal').style.display='flex'" style="padding: 12px 24px; background: #48bb78; color: white; border: none; border-radius: 10px; cursor: pointer; margin-left: 10px;">Upload Item</button>
+            <button onclick="document.getElementById('uploadModal').style.display='flex'" style="padding: 12px 24px; background: #48bb78; color: white; border: none; border-radius: 10px; cursor: pointer; margin-left: 10px;">Upload File/Folder</button>
         </div>
         
+        <!-- Users Table -->
         <div style="background: white; border-radius: 16px; overflow-x: auto; margin-bottom: 32px;">
             <h2 style="padding: 20px;"><i class="fas fa-users"></i> Users & PINs</h2>
             <table style="width: 100%; border-collapse: collapse;">
                 <thead style="background: #f7fafc;">
-                    <tr>
-                        <th style="padding: 12px; text-align: left;">PIN</th>
-                        <th style="padding: 12px; text-align: left;">Created</th>
-                        <th style="padding: 12px; text-align: left;">Devices</th>
-                        <th style="padding: 12px; text-align: left;">Status</th>
-                        <th style="padding: 12px; text-align: left;">Actions</th>
-                    </tr>
+                    <tr><th style="padding: 12px; text-align: left;">PIN</th><th>Created</th><th>Devices</th><th>Status</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                     {% for user in users %}
@@ -60,11 +58,11 @@
                         <td style="padding: 12px;">
                             <a href="{{ url_for('user_devices', user_id=user.id) }}" style="background: #4299e1; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; display: inline-block; margin: 2px;">Devices</a>
                             {% if user.is_active %}
-                                <a href="{{ url_for('revoke_pin', user_id=user.id) }}" style="background: #ed8936; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; display: inline-block; margin: 2px;">Revoke</a>
+                                <a href="{{ url_for('revoke_pin', user_id=user.id) }}" onclick="return confirm('Revoke PIN {{ user.pin }}?')" style="background: #ed8936; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; display: inline-block; margin: 2px;">Revoke</a>
                             {% else %}
                                 <a href="{{ url_for('activate_pin', user_id=user.id) }}" style="background: #48bb78; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; display: inline-block; margin: 2px;">Activate</a>
                             {% endif %}
-                            <a href="{{ url_for('delete_pin', user_id=user.id) }}" onclick="return confirm('Delete this PIN permanently?')" style="background: #f56565; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; display: inline-block; margin: 2px;">Delete</a>
+                            <a href="{{ url_for('delete_pin', user_id=user.id) }}" onclick="return confirm('PERMANENTLY DELETE user {{ user.pin }}? Cannot undo!')" style="background: #f56565; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; display: inline-block; margin: 2px;">Delete User</a>
                         </td>
                     </tr>
                     {% endfor %}
@@ -72,6 +70,30 @@
             </table>
         </div>
         
+        <!-- Items Table -->
+        <div style="background: white; border-radius: 16px; overflow-x: auto; margin-bottom: 32px;">
+            <h2 style="padding: 20px;"><i class="fas fa-folder-open"></i> Vault Items</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead style="background: #f7fafc;">
+                    <tr><th style="padding: 12px; text-align: left;">Name</th><th>Type</th><th>Size</th><th>Created</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 12px;"><i class="fas {% if item.type == 'folder' %}fa-folder{% else %}fa-file{% endif %}"></i> {{ item.name }}</td>
+                        <td style="padding: 12px;">{{ item.type|upper }}</td>
+                        <td style="padding: 12px;">{% if item.size %}{{ (item.size / 1024 / 1024)|round(1) }} MB{% else %}-{% endif %}</td>
+                        <td style="padding: 12px;">{{ item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else 'N/A' }}</td>
+                        <td style="padding: 12px;">
+                            <a href="{{ url_for('delete_item', item_id=item.id) }}" onclick="return confirm('PERMANENTLY DELETE {{ item.name }}?')" style="background: #f56565; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none;">Delete</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Permissions -->
         <div style="background: white; border-radius: 16px; padding: 24px;">
             <h2 style="margin-bottom: 20px;"><i class="fas fa-shield-alt"></i> Update Permissions</h2>
             <form method="POST" action="{{ url_for('update_permissions') }}">
@@ -79,19 +101,14 @@
                     <label style="display: block; margin-bottom: 5px; font-weight: 600;">Select User:</label>
                     <select name="user_id" required style="padding: 10px; width: 100%; max-width: 300px; border: 1px solid #ddd; border-radius: 6px;">
                         <option value="">Select User</option>
-                        {% for user in users %}
-                            <option value="{{ user.id }}">{{ user.pin }}</option>
-                        {% endfor %}
+                        {% for user in users %}<option value="{{ user.id }}">{{ user.pin }}</option>{% endfor %}
                     </select>
                 </div>
                 <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px; font-weight: 600;">Restrict Access to Items (Ctrl+Click to select multiple):</label>
-                    <select name="restricted_items" multiple style="padding: 10px; min-width: 250px; width: 100%; max-width: 400px; border: 1px solid #ddd; border-radius: 6px; min-height: 150px;">
-                        {% for item in items %}
-                            <option value="{{ item.id }}">{{ item.name }} ({{ item.type }})</option>
-                        {% endfor %}
+                    <label style="display: block; margin-bottom: 5px; font-weight: 600;">Restrict Items (Ctrl+Click):</label>
+                    <select name="restricted_items" multiple style="padding: 10px; width: 100%; max-width: 400px; border: 1px solid #ddd; border-radius: 6px; min-height: 150px;">
+                        {% for item in items %}<option value="{{ item.id }}">{{ item.name }} ({{ item.type }})</option>{% endfor %}
                     </select>
-                    <p style="font-size: 12px; color: #718096; margin-top: 5px;">Hold Ctrl (Windows) or Cmd (Mac) to select multiple items to restrict</p>
                 </div>
                 <button type="submit" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;">Update Permissions</button>
             </form>
@@ -99,40 +116,23 @@
     </div>
 </div>
 
+<!-- Upload Modal -->
 <div id="uploadModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000;">
-    <div style="background: white; border-radius: 24px; padding: 32px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto;">
+    <div style="background: white; border-radius: 24px; padding: 32px; max-width: 500px; width: 90%;">
         <h3 style="margin-bottom: 20px;">Upload New Item</h3>
         <form method="POST" action="{{ url_for('upload_item') }}" enctype="multipart/form-data">
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Name:</label>
-                <input type="text" name="name" placeholder="Item Name" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Type:</label>
-                <select name="type" id="itemType" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                    <option value="file">File</option>
-                    <option value="folder">Folder</option>
-                </select>
-            </div>
-            <div id="fileInput" style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">File:</label>
-                <input type="file" name="file" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Thumbnail/Picture (Optional):</label>
-                <input type="file" name="picture" accept="image/*" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <p style="font-size: 12px; color: #718096; margin-top: 5px;">Upload a custom thumbnail for this item</p>
-            </div>
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Parent Folder:</label>
-                <select name="parent_id" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                    <option value="">Root Directory</option>
-                    {% for folder in folders %}
-                        <option value="{{ folder.id }}">{{ folder.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <button type="submit" style="width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Upload Item</button>
+            <input type="text" name="name" placeholder="Name" required style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 6px;">
+            <select name="type" id="itemType" style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 6px;">
+                <option value="file">File</option>
+                <option value="folder">Folder</option>
+            </select>
+            <div id="fileInput"><input type="file" name="file" style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 6px;"></div>
+            <input type="file" name="picture" accept="image/*" style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 6px;">
+            <select name="parent_id" style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 6px;">
+                <option value="">Root Directory</option>
+                {% for folder in folders %}<option value="{{ folder.id }}">{{ folder.name }}</option>{% endfor %}
+            </select>
+            <button type="submit" style="width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;">Upload</button>
         </form>
         <button onclick="document.getElementById('uploadModal').style.display='none'" style="margin-top: 10px; width: 100%; padding: 10px; background: #ccc; border: none; border-radius: 6px; cursor: pointer;">Cancel</button>
     </div>
@@ -140,12 +140,7 @@
 
 <script>
     document.getElementById('itemType').addEventListener('change', function() {
-        const fileInput = document.getElementById('fileInput');
-        if (this.value === 'folder') {
-            fileInput.style.display = 'none';
-        } else {
-            fileInput.style.display = 'block';
-        }
+        document.getElementById('fileInput').style.display = this.value === 'folder' ? 'none' : 'block';
     });
 </script>
 {% endblock %}
