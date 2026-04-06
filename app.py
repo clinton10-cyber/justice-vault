@@ -44,14 +44,12 @@ IS_PRODUCTION = os.environ.get('FLASK_ENV') == 'production'
 
 print(f"📡 Environment: {'RENDER' if IS_RENDER else 'LOCAL'}, Production: {IS_PRODUCTION}", file=sys.stderr)
 
-# Session security for production - FIXED for Render
-if IS_PRODUCTION:
-    # Disable secure cookie for Render free tier
-    app.config['SESSION_COOKIE_SECURE'] = False
-    app.config['SESSION_COOKIE_HTTPONLY'] = True
-    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
-    app.config['SESSION_REFRESH_EACH_REQUEST'] = True
+# Session security - SHORT SESSION for admin (must login every time)
+app.config['SESSION_COOKIE_SECURE'] = False  # Allow HTTP for Render
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)  # Short session
+app.config['SESSION_REFRESH_EACH_REQUEST'] = False
 
 # File upload limits
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB
@@ -87,12 +85,10 @@ else:
 
 # Database Configuration
 database_url = os.environ.get('DATABASE_URL')
-use_sqlite = False
 
 if not database_url:
     database_url = 'sqlite:///database/vault.db'
     os.makedirs('database', exist_ok=True)
-    use_sqlite = True
     print("📀 Using SQLite database", file=sys.stderr)
 
 if database_url and database_url.startswith('postgres://'):
@@ -171,7 +167,6 @@ class DeviceLog(db.Model):
     device_type: Mapped[str] = mapped_column(String(100))
     browser: Mapped[str] = mapped_column(String(100))
     os: Mapped[str] = mapped_column(String(100))
-    device_fingerprint: Mapped[str] = mapped_column(String(200), nullable=True)  # Device fingerprint for validation
     accessed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
 class Download(db.Model):
@@ -181,19 +176,7 @@ class Download(db.Model):
     item_id: Mapped[int] = mapped_column(Integer, ForeignKey('items.id', ondelete='CASCADE'), nullable=False, index=True)
     downloaded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
-# ==================== DEVICE FINGERPRINT HELPER ====================
-def get_device_fingerprint(request):
-    """Generate a unique fingerprint for the device based on request headers"""
-    user_agent = request.user_agent.string if request.user_agent else ''
-    accept_language = request.headers.get('Accept-Language', '')
-    accept_encoding = request.headers.get('Accept-Encoding', '')
-    ip = request.remote_addr or ''
-    
-    # Combine factors to create a unique fingerprint
-    fingerprint_string = f"{user_agent}|{accept_language}|{accept_encoding}|{ip}"
-    fingerprint = hashlib.sha256(fingerprint_string.encode()).hexdigest()
-    return fingerprint
-
+# ==================== HELPER FUNCTIONS ====================
 def parse_user_agent(ua_string):
     ua = user_agents.parse(ua_string)
     return {
@@ -205,51 +188,18 @@ def parse_user_agent(ua_string):
 def log_device_access(user_id, request):
     try:
         ua_info = parse_user_agent(request.user_agent.string)
-        fingerprint = get_device_fingerprint(request)
-        
         device_log = DeviceLog(
             user_id=user_id,
             ip_address=request.remote_addr,
             user_agent=request.user_agent.string,
             device_type=ua_info['device_type'],
             browser=ua_info['browser'],
-            os=ua_info['os'],
-            device_fingerprint=fingerprint
+            os=ua_info['os']
         )
         db.session.add(device_log)
         db.session.commit()
-        return fingerprint
     except Exception as e:
         logger.error(f"Failed to log device access: {e}")
-        return None
-
-def is_authorized_device(user_id, request):
-    """Check if the current device is authorized for this user"""
-    current_fingerprint = get_device_fingerprint(request)
-    
-    # Get the most recent device log for this user
-    latest_device = DeviceLog.query.filter_by(user_id=user_id).order_by(DeviceLog.accessed_at.desc()).first()
-    
-    if latest_device and latest_device.device_fingerprint == current_fingerprint:
-        return True
-    return False
-
-def admin_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        # Check if admin is logged in
-        if not session.get('is_admin'):
-            flash('Please login as admin', 'error')
-            return redirect(url_for('admin_login'))
-        
-        # Check if device is authorized (must have logged in from this device before)
-        if not is_authorized_device(session.get('admin_user_id'), request):
-            flash('This device is not authorized. Please login from an authorized device.', 'error')
-            session.clear()
-            return redirect(url_for('admin_login'))
-        
-        return f(*args, **kwargs)
-    return decorated_function
 
 def get_user_by_pin(pin):
     return User.query.filter_by(pin=pin).first()
@@ -362,6 +312,17 @@ def init_database():
 # ==================== AUTHENTICATION ====================
 ADMIN_PASSWORD_HASH = hashlib.sha256(os.environ.get('ADMIN_PASSWORD', 'admin123').encode()).hexdigest()
 
+def admin_required(f):
+    """Decorator that requires admin to be logged in - NO persistent session"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Check if admin is logged in this session
+        if not session.get('is_admin'):
+            flash('Please login to continue', 'error')
+            return redirect(url_for('admin_login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 # ==================== REQUEST LOGGING ====================
 @app.before_request
 def log_request_info():
@@ -390,39 +351,21 @@ def simple_health():
 # ==================== ADMIN ROUTES ====================
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_login():
-    """Admin login page - accessible at /admin"""
+    """Admin login page - must login every time to access any admin feature"""
+    
+    # Clear any existing admin session on every visit to login page
     if session.get('is_admin'):
-        # Check if device is still authorized
-        if is_authorized_device(session.get('admin_user_id'), request):
-            return redirect(url_for('admin_dashboard'))
-        else:
-            # Device not authorized, clear session
-            session.clear()
+        session.pop('is_admin', None)
     
     if request.method == 'POST':
         password = request.form.get('password')
         if hashlib.sha256(password.encode()).hexdigest() == ADMIN_PASSWORD_HASH:
-            # Clear any existing session
-            session.clear()
-            
-            # Create a temporary admin user record for device tracking
-            admin_user = User.query.filter_by(pin='ADMIN_MASTER').first()
-            if not admin_user:
-                admin_user = User(pin='ADMIN_MASTER', is_active=True)
-                db.session.add(admin_user)
-                db.session.commit()
-            
-            # Log this device access
-            fingerprint = log_device_access(admin_user.id, request)
-            
-            # Set session
+            # Set session - this will expire after 30 minutes
             session['is_admin'] = True
-            session['admin_user_id'] = admin_user.id
-            session['device_fingerprint'] = fingerprint
             session.permanent = True
             session.modified = True
             
-            flash('Welcome Admin! This device has been registered.', 'success')
+            flash('Login successful!', 'success')
             return redirect(url_for('admin_dashboard'))
         else:
             flash('Invalid password', 'error')
@@ -432,7 +375,7 @@ def admin_login():
 @app.route('/admin/dashboard')
 @admin_required
 def admin_dashboard():
-    total_users = User.query.filter(User.pin != 'ADMIN_MASTER').count()
+    total_users = User.query.count()
     total_files = Item.query.filter_by(type='file').count()
     total_folders = Item.query.filter_by(type='folder').count()
     total_downloads = Download.query.count()
@@ -440,7 +383,7 @@ def admin_dashboard():
     users = db.session.query(
         User.id, User.pin, User.created_at, User.is_active,
         func.count(DeviceLog.id).label('device_count')
-    ).filter(User.pin != 'ADMIN_MASTER').outerjoin(DeviceLog).group_by(User.id).order_by(User.created_at.desc()).all()
+    ).outerjoin(DeviceLog).group_by(User.id).order_by(User.created_at.desc()).all()
     
     items = Item.query.order_by(Item.created_at.desc()).limit(100).all()
     folders = Item.query.filter_by(type='folder').order_by(Item.name).all()
@@ -474,7 +417,7 @@ def create_pin():
 @admin_required
 def revoke_pin(user_id):
     user = User.query.get(user_id)
-    if user and user.pin != 'ADMIN_MASTER':
+    if user:
         user.is_active = False
         db.session.commit()
         flash('PIN revoked', 'success')
@@ -484,7 +427,7 @@ def revoke_pin(user_id):
 @admin_required
 def activate_pin(user_id):
     user = User.query.get(user_id)
-    if user and user.pin != 'ADMIN_MASTER':
+    if user:
         user.is_active = True
         db.session.commit()
         flash('PIN activated', 'success')
@@ -494,7 +437,7 @@ def activate_pin(user_id):
 @admin_required
 def delete_pin(user_id):
     user = User.query.get(user_id)
-    if user and user.pin != 'ADMIN_MASTER':
+    if user:
         db.session.delete(user)
         db.session.commit()
         flash('PIN deleted', 'success')
@@ -647,6 +590,13 @@ def update_permissions():
     flash('Permissions updated', 'success')
     return redirect(url_for('admin_dashboard'))
 
+@app.route('/admin/logout')
+def admin_logout():
+    """Admin logout - clears session"""
+    session.pop('is_admin', None)
+    flash('You have been logged out', 'success')
+    return redirect(url_for('admin_login'))
+
 # ==================== USER ROUTES ====================
 @app.route('/')
 def index():
@@ -657,8 +607,7 @@ def user_vault():
     if request.method == 'POST':
         pin = request.form.get('pin')
         user = get_user_by_pin(pin)
-        if user and user.is_active and user.pin != 'ADMIN_MASTER':
-            session.clear()
+        if user and user.is_active:
             session['user_id'] = user.id
             session['user_pin'] = user.pin
             session.permanent = True
@@ -808,6 +757,7 @@ print("=" * 50, file=sys.stderr)
 print("✅ JUSTICE VAULT APP IS READY", file=sys.stderr)
 print("📍 Admin login: /admin", file=sys.stderr)
 print("📍 User vault: /vault", file=sys.stderr)
+print("📍 Admin session expires after 30 minutes", file=sys.stderr)
 print("=" * 50, file=sys.stderr)
 sys.stderr.flush()
 
