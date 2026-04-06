@@ -7,6 +7,7 @@ import logging
 import mimetypes
 import sys
 import time
+import socket
 from datetime import datetime, timedelta
 from functools import wraps
 from io import BytesIO
@@ -25,8 +26,12 @@ import boto3
 load_dotenv()
 
 # Print startup info for debugging
-print(f"Python version: {sys.version}", file=sys.stderr)
-print(f"Starting application initialization...", file=sys.stderr)
+print("=" * 50, file=sys.stderr)
+print("🚀 JUSTICE VAULT APPLICATION STARTING", file=sys.stderr)
+print(f"🐍 Python version: {sys.version}", file=sys.stderr)
+print(f"📂 Current directory: {os.getcwd()}", file=sys.stderr)
+print("=" * 50, file=sys.stderr)
+sys.stderr.flush()
 
 app = Flask(__name__)
 
@@ -37,12 +42,16 @@ app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 IS_RENDER = bool(os.environ.get('RENDER'))
 IS_PRODUCTION = os.environ.get('FLASK_ENV') == 'production'
 
-# Session security for production
+print(f"📡 Environment: {'RENDER' if IS_RENDER else 'LOCAL'}, Production: {IS_PRODUCTION}", file=sys.stderr)
+
+# Session security for production - FIXED for Render
 if IS_PRODUCTION:
-    app.config['SESSION_COOKIE_SECURE'] = False
+    # Disable secure cookie for Render free tier (no HTTPS issues)
+    app.config['SESSION_COOKIE_SECURE'] = False  # Changed to False for Render
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)  # Extended to 30 days
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+    app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 
 # File upload limits
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB
@@ -64,25 +73,30 @@ if USE_CLOUD_STORAGE:
     )
     app.config['UPLOAD_FOLDER'] = None
     app.config['THUMBNAIL_FOLDER'] = None
+    print("☁️  Using cloud storage", file=sys.stderr)
 else:
     # Local storage
     if IS_RENDER:
         app.config['UPLOAD_FOLDER'] = '/tmp/storage/files'
         app.config['THUMBNAIL_FOLDER'] = '/tmp/storage/thumbnails'
-        print("WARNING: Using ephemeral storage on Render. Files will be lost on restart!", file=sys.stderr)
+        print("⚠️  Using ephemeral storage on Render. Files will be lost on restart!", file=sys.stderr)
     else:
         app.config['UPLOAD_FOLDER'] = 'storage/files'
         app.config['THUMBNAIL_FOLDER'] = 'storage/thumbnails'
     
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     os.makedirs(app.config['THUMBNAIL_FOLDER'], exist_ok=True)
+    print(f"📁 Using local storage: {app.config['UPLOAD_FOLDER']}", file=sys.stderr)
 
 # Database Configuration
 database_url = os.environ.get('DATABASE_URL')
+use_sqlite = False
+
 if not database_url:
     database_url = 'sqlite:///database/vault.db'
     os.makedirs('database', exist_ok=True)
-    print("Using SQLite database", file=sys.stderr)
+    use_sqlite = True
+    print("📀 Using SQLite database (no PostgreSQL attached)", file=sys.stderr)
 
 if database_url and database_url.startswith('postgres://'):
     database_url = database_url.replace('postgres://', 'postgresql://', 1)
@@ -93,12 +107,13 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Connection pooling for PostgreSQL
 if database_url and 'postgresql' in database_url:
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-        'pool_size': 3,
+        'pool_size': 1,  # Minimal for free tier
         'pool_pre_ping': True,
         'pool_recycle': 300,
-        'pool_timeout': 10,
-        'max_overflow': 5
+        'pool_timeout': 5,  # Short timeout
+        'max_overflow': 2
     }
+    print("🐘 Using PostgreSQL database", file=sys.stderr)
 else:
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'pool_size': 10,
@@ -172,26 +187,22 @@ class Download(db.Model):
 
 # ==================== DATABASE INITIALIZATION ====================
 def init_database():
-    """Initialize database with retry logic"""
-    max_retries = 3
-    retry_delay = 2
-    
-    for attempt in range(max_retries):
-        try:
-            with app.app_context():
-                # Test connection first
-                db.engine.connect()
-                db.create_all()
-                print("Database initialized successfully", file=sys.stderr)
-                return True
-        except Exception as e:
-            print(f"Database init attempt {attempt + 1} failed: {e}", file=sys.stderr)
-            if attempt < max_retries - 1:
-                time.sleep(retry_delay)
-            else:
-                print("Database initialization failed, but continuing...", file=sys.stderr)
-                return False
-    return False
+    """Initialize database with better error handling"""
+    try:
+        with app.app_context():
+            # For PostgreSQL, test connection with timeout
+            if database_url and 'postgresql' in database_url:
+                socket.setdefaulttimeout(10)
+            
+            db.engine.dispose()  # Clean up any existing connections
+            db.engine.connect()
+            db.create_all()
+            print("✅ Database initialized successfully", file=sys.stderr)
+            return True
+    except Exception as e:
+        print(f"❌ Database init failed: {e}", file=sys.stderr)
+        print("⚠️  App will continue but database features may not work", file=sys.stderr)
+        return False
 
 # ==================== HELPER FUNCTIONS ====================
 def parse_user_agent(ua_string):
@@ -330,19 +341,44 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+# ==================== REQUEST LOGGING ====================
+@app.before_request
+def log_request_info():
+    print(f"📝 Request: {request.method} {request.path}", file=sys.stderr)
+    sys.stderr.flush()
+
+@app.after_request
+def log_response_info(response):
+    print(f"📝 Response: {response.status_code} for {request.path}", file=sys.stderr)
+    sys.stderr.flush()
+    return response
+
 # ==================== HEALTH ROUTES ====================
 @app.route('/health')
 def health_check():
     """Health check endpoint for Render"""
     try:
         db.session.execute(text('SELECT 1'))
-        return jsonify({'status': 'healthy', 'database': 'connected'}), 200
+        return jsonify({'status': 'healthy', 'database': 'connected', 'timestamp': datetime.utcnow().isoformat()}), 200
     except Exception as e:
-        return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
+        return jsonify({'status': 'unhealthy', 'error': str(e), 'timestamp': datetime.utcnow().isoformat()}), 500
 
 @app.route('/health/simple')
 def simple_health():
-    return jsonify({"status": "alive", "port": os.environ.get('PORT', 5000)}), 200
+    return jsonify({"status": "alive", "port": os.environ.get('PORT', 5000), "timestamp": datetime.utcnow().isoformat()}), 200
+
+@app.route('/debug-session')
+def debug_session():
+    """Debug endpoint to check session status"""
+    return jsonify({
+        'session_keys': list(session.keys()),
+        'is_admin': session.get('is_admin', False),
+        'session_permanent': session.permanent,
+        'cookie_secure': app.config.get('SESSION_COOKIE_SECURE'),
+        'cookie_httponly': app.config.get('SESSION_COOKIE_HTTPONLY'),
+        'cookie_samesite': app.config.get('SESSION_COOKIE_SAMESITE'),
+        'environment': 'RENDER' if IS_RENDER else 'LOCAL'
+    })
 
 # ==================== USER ROUTES ====================
 @app.route('/')
@@ -355,9 +391,11 @@ def user_vault():
         pin = request.form.get('pin')
         user = get_user_by_pin(pin)
         if user and user.is_active:
+            session.clear()
             session['user_id'] = user.id
             session['user_pin'] = user.pin
             session.permanent = True
+            session.modified = True
             log_device_access(user.id, request)
             flash('Welcome to your secure vault!', 'success')
             return redirect(url_for('user_vault'))
@@ -490,15 +528,19 @@ def logout():
 def admin_login():
     if session.get('is_admin'):
         return redirect(url_for('admin_dashboard'))
+    
     if request.method == 'POST':
         password = request.form.get('password')
         if hashlib.sha256(password.encode()).hexdigest() == ADMIN_PASSWORD_HASH:
+            session.clear()
             session['is_admin'] = True
             session.permanent = True
+            session.modified = True
             flash('Welcome Admin!', 'success')
             return redirect(url_for('admin_dashboard'))
         else:
             flash('Invalid password', 'error')
+    
     return render_template('admin_login.html')
 
 @app.route('/admin/dashboard')
@@ -737,22 +779,27 @@ def too_large(e):
 
 @app.errorhandler(404)
 def not_found(e):
-    return render_template('404.html'), 404
+    return render_template('error.html'), 404
 
 @app.errorhandler(500)
 def server_error(e):
     logger.error(f"Server error: {e}")
-    return render_template('500.html'), 500
+    return render_template('error.html'), 500
 
 # ==================== INITIALIZATION ====================
 # Initialize database when the app starts
 with app.app_context():
     init_database()
 
+print("=" * 50, file=sys.stderr)
+print("✅ JUSTICE VAULT APP IS READY", file=sys.stderr)
+print("=" * 50, file=sys.stderr)
+sys.stderr.flush()
+
 # ==================== MAIN ENTRY POINT ====================
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV') == 'development'
     
-    print(f"Starting Flask server on port {port}", file=sys.stderr)
+    print(f"🚀 Starting Flask server on port {port} (debug={debug})", file=sys.stderr)
     app.run(host='0.0.0.0', port=port, debug=debug)
