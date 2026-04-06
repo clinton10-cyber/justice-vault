@@ -24,11 +24,9 @@ from PIL import Image
 
 load_dotenv()
 
-# Print startup info for debugging
 print("=" * 50, file=sys.stderr)
 print("🚀 JUSTICE VAULT APPLICATION STARTING", file=sys.stderr)
 print(f"🐍 Python version: {sys.version}", file=sys.stderr)
-print(f"📂 Current directory: {os.getcwd()}", file=sys.stderr)
 print("=" * 50, file=sys.stderr)
 sys.stderr.flush()
 
@@ -37,27 +35,22 @@ app = Flask(__name__)
 # ==================== CONFIGURATION ====================
 app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 
-# Environment detection
 IS_RENDER = bool(os.environ.get('RENDER'))
 IS_PRODUCTION = os.environ.get('FLASK_ENV') == 'production'
 
-print(f"📡 Environment: {'RENDER' if IS_RENDER else 'LOCAL'}, Production: {IS_PRODUCTION}", file=sys.stderr)
+print(f"📡 Environment: {'RENDER' if IS_RENDER else 'LOCAL'}", file=sys.stderr)
 
-# Session security - SHORT SESSION for admin (must login every time)
-app.config['SESSION_COOKIE_SECURE'] = False  # Allow HTTP for Render
+app.config['SESSION_COOKIE_SECURE'] = False
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)  # Short session
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 app.config['SESSION_REFRESH_EACH_REQUEST'] = False
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
 
-# File upload limits
-app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB
-
-# Local Storage Configuration
+# Storage
 if IS_RENDER:
     app.config['UPLOAD_FOLDER'] = '/tmp/storage/files'
     app.config['THUMBNAIL_FOLDER'] = '/tmp/storage/thumbnails'
-    print("⚠️  Using ephemeral storage on Render", file=sys.stderr)
 else:
     app.config['UPLOAD_FOLDER'] = 'storage/files'
     app.config['THUMBNAIL_FOLDER'] = 'storage/thumbnails'
@@ -65,13 +58,13 @@ else:
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['THUMBNAIL_FOLDER'], exist_ok=True)
 
-# Database Configuration
+# Database - PostgreSQL for production, SQLite for local
 database_url = os.environ.get('DATABASE_URL')
 
 if not database_url:
-    database_url = 'sqlite:///database/vault.db'
+    database_url = 'sqlite:///database/vault.db?check_same_thread=False'
     os.makedirs('database', exist_ok=True)
-    print("📀 Using SQLite database", file=sys.stderr)
+    print("📀 Using SQLite database (local only)", file=sys.stderr)
 
 if database_url and database_url.startswith('postgres://'):
     database_url = database_url.replace('postgres://', 'postgresql://', 1)
@@ -79,19 +72,21 @@ if database_url and database_url.startswith('postgres://'):
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Connection pool for 100 concurrent users
 if database_url and 'postgresql' in database_url:
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-        'pool_size': 1,
+        'pool_size': 20,
+        'max_overflow': 30,
         'pool_pre_ping': True,
         'pool_recycle': 300,
-        'pool_timeout': 5,
-        'max_overflow': 2
+        'pool_timeout': 30,
     }
 else:
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'pool_size': 10,
         'pool_pre_ping': True,
         'pool_recycle': 3600,
+        'connect_args': {'check_same_thread': False}
     }
 
 db = SQLAlchemy(app)
@@ -120,6 +115,7 @@ class Item(db.Model):
     __tablename__ = 'items'
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(500), nullable=False)
+    original_filename: Mapped[str] = mapped_column(String(500), nullable=True)
     type: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     file_path: Mapped[str] = mapped_column(Text, nullable=True)
     thumbnail_path: Mapped[str] = mapped_column(Text, nullable=True)
@@ -182,6 +178,7 @@ def log_device_access(user_id, request):
         db.session.commit()
     except Exception as e:
         logger.error(f"Failed to log device access: {e}")
+        db.session.rollback()
 
 def get_user_by_pin(pin):
     return User.query.filter_by(pin=pin).first()
@@ -215,12 +212,9 @@ def get_file_icon(mime_type):
 def create_thumbnail(file_path, thumbnail_path, size=(300, 300)):
     try:
         img = Image.open(file_path)
-        
         if img.mode in ('RGBA', 'P'):
             img = img.convert('RGB')
-        
         img.thumbnail(size, Image.Resampling.LANCZOS)
-        
         img.save(thumbnail_path, 'JPEG', quality=85, optimize=True)
         return True
     except Exception as e:
@@ -242,7 +236,6 @@ def init_database():
         with app.app_context():
             if database_url and 'postgresql' in database_url:
                 socket.setdefaulttimeout(10)
-            
             db.engine.dispose()
             db.engine.connect()
             db.create_all()
@@ -256,27 +249,13 @@ def init_database():
 ADMIN_PASSWORD_HASH = hashlib.sha256(os.environ.get('ADMIN_PASSWORD', 'admin123').encode()).hexdigest()
 
 def admin_required(f):
-    """Decorator that requires admin to be logged in - NO persistent session"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # Check if admin is logged in this session
         if not session.get('is_admin'):
             flash('Please login to continue', 'error')
             return redirect(url_for('admin_login'))
         return f(*args, **kwargs)
     return decorated_function
-
-# ==================== REQUEST LOGGING ====================
-@app.before_request
-def log_request_info():
-    print(f"📝 Request: {request.method} {request.path}", file=sys.stderr)
-    sys.stderr.flush()
-
-@app.after_request
-def log_response_info(response):
-    print(f"📝 Response: {response.status_code} for {request.path}", file=sys.stderr)
-    sys.stderr.flush()
-    return response
 
 # ==================== HEALTH ROUTES ====================
 @app.route('/health')
@@ -289,17 +268,14 @@ def health_check():
 
 @app.route('/health/simple')
 def simple_health():
-    return jsonify({"status": "alive", "port": os.environ.get('PORT', 5000), "timestamp": datetime.utcnow().isoformat()}), 200
+    return jsonify({"status": "alive", "port": os.environ.get('PORT', 5000)}), 200
 
 # ==================== THUMBNAIL SERVING ====================
 @app.route('/thumbnail/<path:filename>')
 def serve_thumbnail(filename):
-    """Serve thumbnail images securely"""
     try:
-        # Security: ensure the path is within thumbnail folder and prevent path traversal
         safe_filename = os.path.basename(filename)
         safe_path = os.path.join(app.config['THUMBNAIL_FOLDER'], safe_filename)
-        
         if os.path.exists(safe_path) and os.path.isfile(safe_path):
             return send_file(safe_path, mimetype='image/jpeg')
         return '', 404
@@ -310,20 +286,14 @@ def serve_thumbnail(filename):
 # ==================== ADMIN ROUTES ====================
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_login():
-    """Admin login page - must login every time to access any admin feature"""
-    
-    # Clear any existing admin session on every visit to login page
     if session.get('is_admin'):
         session.pop('is_admin', None)
     
     if request.method == 'POST':
         password = request.form.get('password')
         if hashlib.sha256(password.encode()).hexdigest() == ADMIN_PASSWORD_HASH:
-            # Set session - this will expire after 30 minutes
             session['is_admin'] = True
             session.permanent = True
-            session.modified = True
-            
             flash('Login successful!', 'success')
             return redirect(url_for('admin_dashboard'))
         else:
@@ -340,46 +310,24 @@ def admin_dashboard():
         total_folders = Item.query.filter_by(type='folder').count()
         total_downloads = Download.query.count()
         
-        # Get users with device count as proper objects
-        users = db.session.query(
-            User.id, 
-            User.pin, 
-            User.created_at, 
-            User.is_active,
+        users_data = db.session.query(
+            User.id, User.pin, User.created_at, User.is_active,
             db.func.coalesce(db.func.count(DeviceLog.id), 0).label('device_count')
-        ).outerjoin(
-            DeviceLog, User.id == DeviceLog.user_id
-        ).group_by(
-            User.id, User.pin, User.created_at, User.is_active
-        ).order_by(
-            User.created_at.desc()
-        ).all()
+        ).outerjoin(DeviceLog, User.id == DeviceLog.user_id
+        ).group_by(User.id, User.pin, User.created_at, User.is_active
+        ).order_by(User.created_at.desc()).all()
         
-        # Convert to dict for easier template access
-        user_list = [{
-            'id': u[0],
-            'pin': u[1],
-            'created_at': u[2],
-            'is_active': u[3],
-            'device_count': u[4]
-        } for u in users]
-        
-        # Get items (these are ORM objects, accessible with dot notation)
+        user_list = [{'id': u[0], 'pin': u[1], 'created_at': u[2], 'is_active': u[3], 'device_count': u[4]} for u in users_data]
         items = Item.query.order_by(Item.created_at.desc()).limit(100).all()
         folders = Item.query.filter_by(type='folder').order_by(Item.name).all()
         
         return render_template('admin_dashboard.html', 
-                             total_users=total_users, 
-                             total_files=total_files,
-                             total_folders=total_folders, 
-                             total_downloads=total_downloads,
-                             users=user_list, 
-                             items=items, 
-                             folders=folders,
-                             use_cloud_storage=False)
+                             total_users=total_users, total_files=total_files,
+                             total_folders=total_folders, total_downloads=total_downloads,
+                             users=user_list, items=items, folders=folders)
     except Exception as e:
         logger.error(f"Admin dashboard error: {e}", exc_info=True)
-        flash(f'Error loading dashboard: {str(e)}', 'error')
+        flash(f'Error loading dashboard', 'error')
         return redirect(url_for('admin_login'))
 
 @app.route('/admin/create_pin', methods=['POST'])
@@ -393,7 +341,6 @@ def create_pin():
         flash(f'PIN created: {pin}', 'success')
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Failed to create PIN: {e}")
         flash('Failed to create PIN', 'error')
     return redirect(url_for('admin_dashboard'))
 
@@ -404,7 +351,9 @@ def revoke_pin(user_id):
     if user:
         user.is_active = False
         db.session.commit()
-        flash('PIN revoked', 'success')
+        flash(f'PIN {user.pin} revoked', 'success')
+    else:
+        flash('User not found', 'error')
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/activate_pin/<int:user_id>')
@@ -414,7 +363,9 @@ def activate_pin(user_id):
     if user:
         user.is_active = True
         db.session.commit()
-        flash('PIN activated', 'success')
+        flash(f'PIN {user.pin} activated', 'success')
+    else:
+        flash('User not found', 'error')
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/delete_pin/<int:user_id>')
@@ -422,9 +373,12 @@ def activate_pin(user_id):
 def delete_pin(user_id):
     user = User.query.get(user_id)
     if user:
+        pin = user.pin
         db.session.delete(user)
         db.session.commit()
-        flash('PIN deleted', 'success')
+        flash(f'User {pin} permanently deleted', 'success')
+    else:
+        flash('User not found', 'error')
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/user_devices/<int:user_id>')
@@ -451,7 +405,6 @@ def upload_item():
     if item_type == 'folder':
         folder_path = os.path.join(app.config['UPLOAD_FOLDER'], f"folder_{secrets.token_hex(16)}")
         os.makedirs(folder_path, exist_ok=True)
-        file_path = folder_path
         
         thumbnail_path = None
         if picture and picture.filename:
@@ -460,15 +413,17 @@ def upload_item():
             picture.save(thumb_full_path)
             thumbnail_path = thumb_full_path
         
-        item = Item(name=name, type='folder', file_path=file_path, 
+        item = Item(name=name, type='folder', file_path=folder_path, 
                    thumbnail_path=thumbnail_path, parent_id=parent_id)
         db.session.add(item)
         db.session.commit()
         flash(f'Folder "{name}" created', 'success')
         
     elif item_type == 'file' and file and file.filename:
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{secrets.token_hex(16)}_{filename}")
+        original_filename = secure_filename(file.filename)
+        file_ext = os.path.splitext(original_filename)[1]
+        unique_filename = f"{secrets.token_hex(16)}{file_ext}"
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
         file.save(file_path)
         
         thumbnail_path = None
@@ -484,11 +439,11 @@ def upload_item():
                 thumbnail_path = thumb_full_path
         
         file_size = os.path.getsize(file_path)
-        mime_type = file.content_type or mimetypes.guess_type(filename)[0]
+        mime_type = file.content_type or mimetypes.guess_type(original_filename)[0]
         
-        item = Item(name=name, type='file', file_path=file_path, 
-                   thumbnail_path=thumbnail_path, parent_id=parent_id, 
-                   size=file_size, mime_type=mime_type)
+        item = Item(name=name, original_filename=original_filename, type='file', 
+                   file_path=file_path, thumbnail_path=thumbnail_path, 
+                   parent_id=parent_id, size=file_size, mime_type=mime_type)
         db.session.add(item)
         db.session.commit()
         flash(f'File "{name}" uploaded', 'success')
@@ -502,10 +457,10 @@ def upload_item():
 def delete_item(item_id):
     item = Item.query.get(item_id)
     if item:
-        if item.type == 'folder':
-            if os.path.exists(item.file_path):
-                shutil.rmtree(item.file_path)
-        else:
+        name = item.name
+        if item.type == 'folder' and os.path.exists(item.file_path):
+            shutil.rmtree(item.file_path)
+        elif item.type == 'file':
             delete_file_from_storage(item.file_path)
         
         if item.thumbnail_path and os.path.exists(item.thumbnail_path):
@@ -513,7 +468,9 @@ def delete_item(item_id):
         
         db.session.delete(item)
         db.session.commit()
-        flash('Item deleted', 'success')
+        flash(f'"{name}" permanently deleted', 'success')
+    else:
+        flash('Item not found', 'error')
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/get_permissions/<int:user_id>')
@@ -539,9 +496,8 @@ def update_permissions():
 
 @app.route('/admin/logout')
 def admin_logout():
-    """Admin logout - clears session"""
     session.pop('is_admin', None)
-    flash('You have been logged out', 'success')
+    flash('Logged out', 'success')
     return redirect(url_for('admin_login'))
 
 # ==================== USER ROUTES ====================
@@ -558,7 +514,6 @@ def user_vault():
             session['user_id'] = user.id
             session['user_pin'] = user.pin
             session.permanent = True
-            session.modified = True
             log_device_access(user.id, request)
             flash('Welcome to your secure vault!', 'success')
             return redirect(url_for('user_vault'))
@@ -575,26 +530,19 @@ def user_vault():
     
     if parent_id and parent_id != 'None':
         items = Item.query.filter_by(parent_id=parent_id).order_by(Item.type.desc(), Item.name).all()
-        parent_folder = Item.query.get(parent_id)
-        folder_name = parent_folder.name if parent_folder else 'Vault'
     else:
         items = Item.query.filter_by(parent_id=None).order_by(Item.type.desc(), Item.name).all()
         parent_id = None
-        folder_name = 'Vault'
     
     items_with_access = []
     for item in items:
-        # Get thumbnail filename for URL
         thumbnail_url = None
         if item.thumbnail_path:
             thumbnail_url = url_for('serve_thumbnail', filename=os.path.basename(item.thumbnail_path))
         
         items_with_access.append({
-            'id': item.id,
-            'name': item.name,
-            'type': item.type,
-            'thumbnail_url': thumbnail_url,
-            'size': item.size,
+            'id': item.id, 'name': item.name, 'type': item.type,
+            'thumbnail_url': thumbnail_url, 'size': item.size,
             'can_access': item.id not in restricted_items,
             'icon': 'fa-folder' if item.type == 'folder' else get_file_icon(item.mime_type)
         })
@@ -610,11 +558,8 @@ def user_vault():
             else:
                 break
     
-    return render_template('user_vault.html', 
-                         logged_in=True, 
-                         items=items_with_access,
-                         folder_id=parent_id, 
-                         breadcrumb=breadcrumb)
+    return render_template('user_vault.html', logged_in=True, items=items_with_access,
+                         folder_id=parent_id, breadcrumb=breadcrumb)
 
 @app.route('/download/<int:item_id>')
 def download_item(item_id):
@@ -644,7 +589,6 @@ def download_item(item_id):
                     file_path = os.path.join(root, file)
                     arcname = os.path.relpath(file_path, item.file_path)
                     zipf.write(file_path, arcname)
-        
         zip_buffer.seek(0)
         
         @after_this_request
@@ -652,14 +596,16 @@ def download_item(item_id):
             zip_buffer.close()
             return response
         
-        return send_file(
-            zip_buffer,
-            as_attachment=True,
-            download_name=f"{item.name}.zip",
-            mimetype='application/zip'
-        )
+        return send_file(zip_buffer, as_attachment=True, download_name=f"{item.name}.zip", mimetype='application/zip')
     else:
-        return send_file(item.file_path, as_attachment=True, download_name=item.name)
+        download_filename = item.original_filename if item.original_filename else item.name
+        if '.' not in download_filename and item.mime_type:
+            ext = mimetypes.guess_extension(item.mime_type)
+            if ext:
+                download_filename = f"{download_filename}{ext}"
+        
+        return send_file(item.file_path, as_attachment=True, download_name=download_filename,
+                        mimetype=item.mime_type or 'application/octet-stream')
 
 @app.route('/logout')
 def logout():
@@ -680,7 +626,7 @@ def not_found(e):
 @app.errorhandler(500)
 def server_error(e):
     logger.error(f"Server error: {e}", exc_info=True)
-    return render_template('error.html', error_message="An internal server error occurred. Please try again later."), 500
+    return render_template('error.html', error_message="Internal server error. Please try again."), 500
 
 # ==================== INITIALIZATION ====================
 with app.app_context():
@@ -690,14 +636,11 @@ print("=" * 50, file=sys.stderr)
 print("✅ JUSTICE VAULT APP IS READY", file=sys.stderr)
 print("📍 Admin login: /admin", file=sys.stderr)
 print("📍 User vault: /vault", file=sys.stderr)
-print("📍 Admin session expires after 30 minutes", file=sys.stderr)
+print("📍 Default admin password: admin123", file=sys.stderr)
 print("=" * 50, file=sys.stderr)
 sys.stderr.flush()
 
-# ==================== MAIN ENTRY POINT ====================
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV') == 'development'
-    
-    print(f"🚀 Starting Flask server on port {port}", file=sys.stderr)
-    app.run(host='0.0.0.0', port=port, debug=debug)
+    app.run(host='0.0.0.0', port=port, debug=debug, threaded=True)
