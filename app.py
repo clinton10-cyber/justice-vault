@@ -1,4 +1,3 @@
-
 import os
 import secrets
 import zipfile
@@ -6,9 +5,12 @@ import shutil
 import hashlib
 import logging
 import mimetypes
+import sys
+import time
 from datetime import datetime, timedelta
 from functools import wraps
 from io import BytesIO
+
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify, after_this_request
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
@@ -19,10 +21,12 @@ from sqlalchemy import Integer, String, Boolean, DateTime, Text, BigInteger, For
 import user_agents
 from PIL import Image
 import boto3
-import sys
-import time
 
 load_dotenv()
+
+# Print startup info for debugging
+print(f"Python version: {sys.version}", file=sys.stderr)
+print(f"Starting application initialization...", file=sys.stderr)
 
 app = Flask(__name__)
 
@@ -38,7 +42,7 @@ if IS_PRODUCTION:
     app.config['SESSION_COOKIE_SECURE'] = True
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)  # Extended to 30 days
 
 # File upload limits
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB
@@ -78,21 +82,22 @@ database_url = os.environ.get('DATABASE_URL')
 if not database_url:
     database_url = 'sqlite:///database/vault.db'
     os.makedirs('database', exist_ok=True)
+    print("Using SQLite database", file=sys.stderr)
 
-if database_url.startswith('postgres://'):
+if database_url and database_url.startswith('postgres://'):
     database_url = database_url.replace('postgres://', 'postgresql://', 1)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Connection pooling for PostgreSQL
-if 'postgresql' in database_url:
+if database_url and 'postgresql' in database_url:
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-        'pool_size': 5,
+        'pool_size': 3,
         'pool_pre_ping': True,
         'pool_recycle': 300,
-        'pool_timeout': 30,
-        'max_overflow': 10
+        'pool_timeout': 10,
+        'max_overflow': 5
     }
 else:
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
@@ -168,21 +173,23 @@ class Download(db.Model):
 # ==================== DATABASE INITIALIZATION ====================
 def init_database():
     """Initialize database with retry logic"""
-    max_retries = 5
-    retry_delay = 3
+    max_retries = 3
+    retry_delay = 2
     
     for attempt in range(max_retries):
         try:
             with app.app_context():
+                # Test connection first
+                db.engine.connect()
                 db.create_all()
-                logger.info("Database tables created/verified successfully")
+                print("Database initialized successfully", file=sys.stderr)
                 return True
         except Exception as e:
-            logger.error(f"Database init attempt {attempt + 1} failed: {e}")
+            print(f"Database init attempt {attempt + 1} failed: {e}", file=sys.stderr)
             if attempt < max_retries - 1:
                 time.sleep(retry_delay)
             else:
-                logger.error("Failed to initialize database")
+                print("Database initialization failed, but continuing...", file=sys.stderr)
                 return False
     return False
 
@@ -196,17 +203,20 @@ def parse_user_agent(ua_string):
     }
 
 def log_device_access(user_id, request):
-    ua_info = parse_user_agent(request.user_agent.string)
-    device_log = DeviceLog(
-        user_id=user_id,
-        ip_address=request.remote_addr,
-        user_agent=request.user_agent.string,
-        device_type=ua_info['device_type'],
-        browser=ua_info['browser'],
-        os=ua_info['os']
-    )
-    db.session.add(device_log)
-    db.session.commit()
+    try:
+        ua_info = parse_user_agent(request.user_agent.string)
+        device_log = DeviceLog(
+            user_id=user_id,
+            ip_address=request.remote_addr,
+            user_agent=request.user_agent.string,
+            device_type=ua_info['device_type'],
+            browser=ua_info['browser'],
+            os=ua_info['os']
+        )
+        db.session.add(device_log)
+        db.session.commit()
+    except Exception as e:
+        logger.error(f"Failed to log device access: {e}")
 
 def get_user_by_pin(pin):
     return User.query.filter_by(pin=pin).first()
@@ -319,6 +329,20 @@ def admin_required(f):
             return redirect(url_for('admin_login'))
         return f(*args, **kwargs)
     return decorated_function
+
+# ==================== HEALTH ROUTES ====================
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Render"""
+    try:
+        db.session.execute(text('SELECT 1'))
+        return jsonify({'status': 'healthy', 'database': 'connected'}), 200
+    except Exception as e:
+        return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
+
+@app.route('/health/simple')
+def simple_health():
+    return jsonify({"status": "alive", "port": os.environ.get('PORT', 5000)}), 200
 
 # ==================== USER ROUTES ====================
 @app.route('/')
@@ -490,7 +514,7 @@ def admin_dashboard():
         func.count(DeviceLog.id).label('device_count')
     ).outerjoin(DeviceLog).group_by(User.id).order_by(User.created_at.desc()).all()
     
-    items = Item.query.order_by(Item.created_at.desc()).all()
+    items = Item.query.order_by(Item.created_at.desc()).limit(100).all()
     folders = Item.query.filter_by(type='folder').order_by(Item.name).all()
     
     return render_template('admin_dashboard.html', 
@@ -705,25 +729,6 @@ def update_permissions():
     flash('Permissions updated', 'success')
     return redirect(url_for('admin_dashboard'))
 
-# ==================== HEALTH CHECK ====================
-@app.route('/health')
-def health_check():
-    """Health check endpoint for Render"""
-    try:
-        db.session.execute(text('SELECT 1'))
-        status = {'status': 'healthy', 'database': 'connected'}
-        
-        if USE_CLOUD_STORAGE:
-            try:
-                s3_client.head_bucket(Bucket=CLOUD_STORAGE_BUCKET)
-                status['storage'] = 'connected'
-            except:
-                status['storage'] = 'error'
-        
-        return jsonify(status), 200
-    except Exception as e:
-        return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
-
 # ==================== ERROR HANDLERS ====================
 @app.errorhandler(413)
 def too_large(e):
@@ -740,10 +745,14 @@ def server_error(e):
     return render_template('500.html'), 500
 
 # ==================== INITIALIZATION ====================
+# Initialize database when the app starts
 with app.app_context():
     init_database()
 
+# ==================== MAIN ENTRY POINT ====================
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV') == 'development'
+    
+    print(f"Starting Flask server on port {port}", file=sys.stderr)
     app.run(host='0.0.0.0', port=port, debug=debug)
