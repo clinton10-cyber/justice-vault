@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center;">
+    <div style="background: white; border-radius: 32px; padding: 48px; text-align: center; max-width: 500px;">
+        <i class="fas fa-exclamation-triangle" style="font-size: 64px; color: #f56565;"></i>
+        <h1 style="margin: 20px 0;">Oops!</h1>
+        <p>{{ error_message }}</p>
+        <a href="{{ url_for('index') }}" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background: #667eea; color: white; border-radius: 10px; text-decoration: none;">Go Home</a>
+    </div>
+</div>
+{% endblock %}

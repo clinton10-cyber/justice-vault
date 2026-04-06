@@ -1,0 +1,13 @@
+version: '3.8'
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=sqlite:///database/vault.db
+      - ADMIN_PASSWORD=admin123
+    volumes:
+      - ./storage:/app/storage
+      - ./database:/app/database
+    restart: unless-stopped

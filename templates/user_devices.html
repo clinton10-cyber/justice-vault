@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="background: #f7fafc; min-height: 100vh;">
+    <div style="background: white; padding: 20px 24px;">
+        <div style="max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between;">
+            <div><h1><i class="fas fa-desktop"></i> User Activity</h1><p>PIN: {{ user.pin if user else 'Unknown' }}</p></div>
+            <a href="{{ url_for('admin_dashboard') }}" style="padding: 10px 20px; background: #667eea; color: white; border-radius: 10px; text-decoration: none;">Back</a>
+        </div>
+    </div>
+    <div style="max-width: 1400px; margin: 0 auto; padding: 24px;">
+        <div style="background: white; border-radius: 16px; overflow-x: auto; margin-bottom: 32px;">
+            <h2 style="padding: 20px;"><i class="fas fa-mobile-alt"></i> Connected Devices</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead><tr><th style="padding: 12px;">IP</th><th>Device</th><th>Browser</th><th>OS</th><th>Time</th></tr></thead>
+                <tbody>{% for device in devices %}<tr><td style="padding: 12px;">{{ device.ip_address }}</td><td>{{ device.device_type }}</td><td>{{ device.browser }}</td><td>{{ device.os }}</td><td>{{ device.accessed_at }}</td></tr>{% else %}<tr><td colspan="5" style="padding: 48px; text-align: center;">No devices recorded</td></tr>{% endfor %}</tbody>
+            </table>
+        </div>
+        <div style="background: white; border-radius: 16px; overflow-x: auto;">
+            <h2 style="padding: 20px;"><i class="fas fa-download"></i> Recent Downloads</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead><tr><th style="padding: 12px;">Item</th><th>Downloaded At</th></tr></thead>
+                <tbody>{% for download, name in downloads %}<tr><td style="padding: 12px;">{{ name }}</td><td>{{ download.downloaded_at }}</td></tr>{% else %}<tr><td colspan="2" style="padding: 48px; text-align: center;">No downloads recorded</td></tr>{% endfor %}</tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
