@@ -1,13 +1,17 @@
 services:
   - type: web
-    name: securevault-pro
-    runtime: python
-    plan: free
+    name: justice-vault
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app -c gunicorn.conf.py
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: FLASK_ENV
+        value: production
       - key: ADMIN_PASSWORD
         sync: false
-      - key: SECRET_KEY
-        generateValue: true
-    buildCommand: pip install -r requirements.txt
-    startCommand: python app.py
-    healthCheckPath: /
+    scaling:
+      minInstances: 1
+      maxInstances: 2
+    healthCheckPath: /health/simple
