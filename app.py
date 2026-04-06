@@ -291,6 +291,22 @@ def health_check():
 def simple_health():
     return jsonify({"status": "alive", "port": os.environ.get('PORT', 5000), "timestamp": datetime.utcnow().isoformat()}), 200
 
+# ==================== THUMBNAIL SERVING ====================
+@app.route('/thumbnail/<path:filename>')
+def serve_thumbnail(filename):
+    """Serve thumbnail images securely"""
+    try:
+        # Security: ensure the path is within thumbnail folder and prevent path traversal
+        safe_filename = os.path.basename(filename)
+        safe_path = os.path.join(app.config['THUMBNAIL_FOLDER'], safe_filename)
+        
+        if os.path.exists(safe_path) and os.path.isfile(safe_path):
+            return send_file(safe_path, mimetype='image/jpeg')
+        return '', 404
+    except Exception as e:
+        logger.error(f"Thumbnail serving error: {e}")
+        return '', 404
+
 # ==================== ADMIN ROUTES ====================
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_login():
@@ -318,38 +334,53 @@ def admin_login():
 @app.route('/admin/dashboard')
 @admin_required
 def admin_dashboard():
-    total_users = User.query.count()
-    total_files = Item.query.filter_by(type='file').count()
-    total_folders = Item.query.filter_by(type='folder').count()
-    total_downloads = Download.query.count()
-    
-    # Fix: Use proper ORM query instead of raw SQL with func.count
-    users = db.session.query(
-        User.id, 
-        User.pin, 
-        User.created_at, 
-        User.is_active,
-        db.func.count(DeviceLog.id).label('device_count')
-    ).outerjoin(
-        DeviceLog, User.id == DeviceLog.user_id
-    ).group_by(
-        User.id
-    ).order_by(
-        User.created_at.desc()
-    ).all()
-    
-    items = Item.query.order_by(Item.created_at.desc()).limit(100).all()
-    folders = Item.query.filter_by(type='folder').order_by(Item.name).all()
-    
-    return render_template('admin_dashboard.html', 
-                         total_users=total_users, 
-                         total_files=total_files,
-                         total_folders=total_folders, 
-                         total_downloads=total_downloads,
-                         users=users, 
-                         items=items, 
-                         folders=folders,
-                         use_cloud_storage=False)
+    try:
+        total_users = User.query.count()
+        total_files = Item.query.filter_by(type='file').count()
+        total_folders = Item.query.filter_by(type='folder').count()
+        total_downloads = Download.query.count()
+        
+        # Get users with device count as proper objects
+        users = db.session.query(
+            User.id, 
+            User.pin, 
+            User.created_at, 
+            User.is_active,
+            db.func.coalesce(db.func.count(DeviceLog.id), 0).label('device_count')
+        ).outerjoin(
+            DeviceLog, User.id == DeviceLog.user_id
+        ).group_by(
+            User.id, User.pin, User.created_at, User.is_active
+        ).order_by(
+            User.created_at.desc()
+        ).all()
+        
+        # Convert to dict for easier template access
+        user_list = [{
+            'id': u[0],
+            'pin': u[1],
+            'created_at': u[2],
+            'is_active': u[3],
+            'device_count': u[4]
+        } for u in users]
+        
+        # Get items (these are ORM objects, accessible with dot notation)
+        items = Item.query.order_by(Item.created_at.desc()).limit(100).all()
+        folders = Item.query.filter_by(type='folder').order_by(Item.name).all()
+        
+        return render_template('admin_dashboard.html', 
+                             total_users=total_users, 
+                             total_files=total_files,
+                             total_folders=total_folders, 
+                             total_downloads=total_downloads,
+                             users=user_list, 
+                             items=items, 
+                             folders=folders,
+                             use_cloud_storage=False)
+    except Exception as e:
+        logger.error(f"Admin dashboard error: {e}", exc_info=True)
+        flash(f'Error loading dashboard: {str(e)}', 'error')
+        return redirect(url_for('admin_login'))
 
 @app.route('/admin/create_pin', methods=['POST'])
 @admin_required
@@ -553,11 +584,16 @@ def user_vault():
     
     items_with_access = []
     for item in items:
+        # Get thumbnail filename for URL
+        thumbnail_url = None
+        if item.thumbnail_path:
+            thumbnail_url = url_for('serve_thumbnail', filename=os.path.basename(item.thumbnail_path))
+        
         items_with_access.append({
             'id': item.id,
             'name': item.name,
             'type': item.type,
-            'thumbnail_path': item.thumbnail_path,
+            'thumbnail_url': thumbnail_url,
             'size': item.size,
             'can_access': item.id not in restricted_items,
             'icon': 'fa-folder' if item.type == 'folder' else get_file_icon(item.mime_type)
@@ -639,12 +675,12 @@ def too_large(e):
 
 @app.errorhandler(404)
 def not_found(e):
-    return render_template('error.html'), 404
+    return render_template('error.html', error_message="Page not found"), 404
 
 @app.errorhandler(500)
 def server_error(e):
-    logger.error(f"Server error: {e}")
-    return render_template('error.html'), 500
+    logger.error(f"Server error: {e}", exc_info=True)
+    return render_template('error.html', error_message="An internal server error occurred. Please try again later."), 500
 
 # ==================== INITIALIZATION ====================
 with app.app_context():
