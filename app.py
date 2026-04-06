@@ -21,7 +21,6 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import Integer, String, Boolean, DateTime, Text, BigInteger, ForeignKey
 import user_agents
 from PIL import Image
-import boto3
 
 load_dotenv()
 
@@ -54,34 +53,17 @@ app.config['SESSION_REFRESH_EACH_REQUEST'] = False
 # File upload limits
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB
 
-# Cloud Storage Configuration
-USE_CLOUD_STORAGE = os.environ.get('USE_CLOUD_STORAGE', 'false').lower() == 'true'
-CLOUD_STORAGE_BUCKET = os.environ.get('CLOUD_STORAGE_BUCKET')
-CLOUD_STORAGE_REGION = os.environ.get('CLOUD_STORAGE_REGION', 'us-east-1')
-CLOUD_STORAGE_ENDPOINT = os.environ.get('CLOUD_STORAGE_ENDPOINT')
-
-if USE_CLOUD_STORAGE:
-    s3_client = boto3.client(
-        's3',
-        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
-        region_name=CLOUD_STORAGE_REGION,
-        endpoint_url=CLOUD_STORAGE_ENDPOINT or None
-    )
-    app.config['UPLOAD_FOLDER'] = None
-    app.config['THUMBNAIL_FOLDER'] = None
-    print("☁️  Using cloud storage", file=sys.stderr)
+# Local Storage Configuration
+if IS_RENDER:
+    app.config['UPLOAD_FOLDER'] = '/tmp/storage/files'
+    app.config['THUMBNAIL_FOLDER'] = '/tmp/storage/thumbnails'
+    print("⚠️  Using ephemeral storage on Render", file=sys.stderr)
 else:
-    if IS_RENDER:
-        app.config['UPLOAD_FOLDER'] = '/tmp/storage/files'
-        app.config['THUMBNAIL_FOLDER'] = '/tmp/storage/thumbnails'
-        print("⚠️  Using ephemeral storage on Render", file=sys.stderr)
-    else:
-        app.config['UPLOAD_FOLDER'] = 'storage/files'
-        app.config['THUMBNAIL_FOLDER'] = 'storage/thumbnails'
-    
-    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    os.makedirs(app.config['THUMBNAIL_FOLDER'], exist_ok=True)
+    app.config['UPLOAD_FOLDER'] = 'storage/files'
+    app.config['THUMBNAIL_FOLDER'] = 'storage/thumbnails'
+
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+os.makedirs(app.config['THUMBNAIL_FOLDER'], exist_ok=True)
 
 # Database Configuration
 database_url = os.environ.get('DATABASE_URL')
@@ -232,62 +214,23 @@ def get_file_icon(mime_type):
 
 def create_thumbnail(file_path, thumbnail_path, size=(300, 300)):
     try:
-        if USE_CLOUD_STORAGE:
-            response = s3_client.get_object(Bucket=CLOUD_STORAGE_BUCKET, Key=file_path)
-            img_data = response['Body'].read()
-            img = Image.open(BytesIO(img_data))
-        else:
-            img = Image.open(file_path)
+        img = Image.open(file_path)
         
         if img.mode in ('RGBA', 'P'):
             img = img.convert('RGB')
         
         img.thumbnail(size, Image.Resampling.LANCZOS)
         
-        thumb_buffer = BytesIO()
-        img.save(thumb_buffer, 'JPEG', quality=85, optimize=True)
-        thumb_buffer.seek(0)
-        
-        if USE_CLOUD_STORAGE:
-            s3_client.upload_fileobj(
-                thumb_buffer,
-                CLOUD_STORAGE_BUCKET,
-                thumbnail_path,
-                ExtraArgs={'ContentType': 'image/jpeg'}
-            )
-        else:
-            with open(thumbnail_path, 'wb') as f:
-                f.write(thumb_buffer.getvalue())
-        
+        img.save(thumbnail_path, 'JPEG', quality=85, optimize=True)
         return True
     except Exception as e:
         logger.error(f"Thumbnail creation error: {e}")
         return False
 
-def save_file_to_storage(file_data, filename, folder='files'):
-    if USE_CLOUD_STORAGE:
-        key = f"{folder}/{secrets.token_hex(16)}_{secure_filename(filename)}"
-        file_data.seek(0)
-        s3_client.upload_fileobj(
-            file_data,
-            CLOUD_STORAGE_BUCKET,
-            key,
-            ExtraArgs={'ContentType': mimetypes.guess_type(filename)[0] or 'application/octet-stream'}
-        )
-        return key
-    else:
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{secrets.token_hex(16)}_{secure_filename(filename)}")
-        file_data.seek(0)
-        file_data.save(file_path)
-        return file_path
-
 def delete_file_from_storage(file_path):
     try:
-        if USE_CLOUD_STORAGE:
-            s3_client.delete_object(Bucket=CLOUD_STORAGE_BUCKET, Key=file_path)
-        else:
-            if os.path.exists(file_path):
-                os.remove(file_path)
+        if os.path.exists(file_path):
+            os.remove(file_path)
         return True
     except Exception as e:
         logger.error(f"Failed to delete file {file_path}: {e}")
@@ -380,10 +323,20 @@ def admin_dashboard():
     total_folders = Item.query.filter_by(type='folder').count()
     total_downloads = Download.query.count()
     
+    # Fix: Use proper ORM query instead of raw SQL with func.count
     users = db.session.query(
-        User.id, User.pin, User.created_at, User.is_active,
-        func.count(DeviceLog.id).label('device_count')
-    ).outerjoin(DeviceLog).group_by(User.id).order_by(User.created_at.desc()).all()
+        User.id, 
+        User.pin, 
+        User.created_at, 
+        User.is_active,
+        db.func.count(DeviceLog.id).label('device_count')
+    ).outerjoin(
+        DeviceLog, User.id == DeviceLog.user_id
+    ).group_by(
+        User.id
+    ).order_by(
+        User.created_at.desc()
+    ).all()
     
     items = Item.query.order_by(Item.created_at.desc()).limit(100).all()
     folders = Item.query.filter_by(type='folder').order_by(Item.name).all()
@@ -396,7 +349,7 @@ def admin_dashboard():
                          users=users, 
                          items=items, 
                          folders=folders,
-                         use_cloud_storage=USE_CLOUD_STORAGE)
+                         use_cloud_storage=False)
 
 @app.route('/admin/create_pin', methods=['POST'])
 @admin_required
@@ -465,28 +418,16 @@ def upload_item():
         return redirect(url_for('admin_dashboard'))
     
     if item_type == 'folder':
-        if USE_CLOUD_STORAGE:
-            folder_key = f"folders/{secrets.token_hex(16)}/"
-            s3_client.put_object(Bucket=CLOUD_STORAGE_BUCKET, Key=folder_key)
-            file_path = folder_key
-        else:
-            folder_path = os.path.join(app.config['UPLOAD_FOLDER'], f"folder_{secrets.token_hex(16)}")
-            os.makedirs(folder_path, exist_ok=True)
-            file_path = folder_path
+        folder_path = os.path.join(app.config['UPLOAD_FOLDER'], f"folder_{secrets.token_hex(16)}")
+        os.makedirs(folder_path, exist_ok=True)
+        file_path = folder_path
         
         thumbnail_path = None
         if picture and picture.filename:
-            if USE_CLOUD_STORAGE:
-                thumb_key = f"thumbnails/thumb_{secrets.token_hex(16)}.jpg"
-                picture.seek(0)
-                s3_client.upload_fileobj(picture, CLOUD_STORAGE_BUCKET, thumb_key, 
-                                        ExtraArgs={'ContentType': 'image/jpeg'})
-                thumbnail_path = thumb_key
-            else:
-                thumb_filename = f"thumb_{secrets.token_hex(16)}.jpg"
-                thumb_full_path = os.path.join(app.config['THUMBNAIL_FOLDER'], thumb_filename)
-                picture.save(thumb_full_path)
-                thumbnail_path = thumb_full_path
+            thumb_filename = f"thumb_{secrets.token_hex(16)}.jpg"
+            thumb_full_path = os.path.join(app.config['THUMBNAIL_FOLDER'], thumb_filename)
+            picture.save(thumb_full_path)
+            thumbnail_path = thumb_full_path
         
         item = Item(name=name, type='folder', file_path=file_path, 
                    thumbnail_path=thumbnail_path, parent_id=parent_id)
@@ -496,39 +437,22 @@ def upload_item():
         
     elif item_type == 'file' and file and file.filename:
         filename = secure_filename(file.filename)
-        file_path = save_file_to_storage(file, filename, 'files')
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{secrets.token_hex(16)}_{filename}")
+        file.save(file_path)
         
         thumbnail_path = None
         if picture and picture.filename:
             thumb_filename = f"thumb_{secrets.token_hex(16)}.jpg"
-            if USE_CLOUD_STORAGE:
-                thumb_key = f"thumbnails/{thumb_filename}"
-                picture.seek(0)
-                s3_client.upload_fileobj(picture, CLOUD_STORAGE_BUCKET, thumb_key,
-                                        ExtraArgs={'ContentType': 'image/jpeg'})
-                thumbnail_path = thumb_key
-            else:
-                thumb_full_path = os.path.join(app.config['THUMBNAIL_FOLDER'], thumb_filename)
-                picture.save(thumb_full_path)
-                thumbnail_path = thumb_full_path
+            thumb_full_path = os.path.join(app.config['THUMBNAIL_FOLDER'], thumb_filename)
+            picture.save(thumb_full_path)
+            thumbnail_path = thumb_full_path
         elif file.content_type and file.content_type.startswith('image/'):
             thumb_filename = f"thumb_{secrets.token_hex(16)}.jpg"
-            if USE_CLOUD_STORAGE:
-                thumb_key = f"thumbnails/{thumb_filename}"
-                file.seek(0)
-                if create_thumbnail(file_path, thumb_key):
-                    thumbnail_path = thumb_key
-            else:
-                thumb_full_path = os.path.join(app.config['THUMBNAIL_FOLDER'], thumb_filename)
-                if create_thumbnail(file_path, thumb_full_path):
-                    thumbnail_path = thumb_full_path
+            thumb_full_path = os.path.join(app.config['THUMBNAIL_FOLDER'], thumb_filename)
+            if create_thumbnail(file_path, thumb_full_path):
+                thumbnail_path = thumb_full_path
         
-        if USE_CLOUD_STORAGE:
-            response = s3_client.head_object(Bucket=CLOUD_STORAGE_BUCKET, Key=file_path)
-            file_size = response['ContentLength']
-        else:
-            file_size = os.path.getsize(file_path)
-        
+        file_size = os.path.getsize(file_path)
         mime_type = file.content_type or mimetypes.guess_type(filename)[0]
         
         item = Item(name=name, type='file', file_path=file_path, 
@@ -548,20 +472,12 @@ def delete_item(item_id):
     item = Item.query.get(item_id)
     if item:
         if item.type == 'folder':
-            if USE_CLOUD_STORAGE:
-                prefix = item.file_path
-                paginator = s3_client.get_paginator('list_objects_v2')
-                for page in paginator.paginate(Bucket=CLOUD_STORAGE_BUCKET, Prefix=prefix):
-                    if 'Contents' in page:
-                        objects = [{'Key': obj['Key']} for obj in page['Contents']]
-                        s3_client.delete_objects(Bucket=CLOUD_STORAGE_BUCKET, Delete={'Objects': objects})
-            else:
-                if os.path.exists(item.file_path):
-                    shutil.rmtree(item.file_path)
+            if os.path.exists(item.file_path):
+                shutil.rmtree(item.file_path)
         else:
             delete_file_from_storage(item.file_path)
         
-        if item.thumbnail_path:
+        if item.thumbnail_path and os.path.exists(item.thumbnail_path):
             delete_file_from_storage(item.thumbnail_path)
         
         db.session.delete(item)
@@ -641,7 +557,7 @@ def user_vault():
             'id': item.id,
             'name': item.name,
             'type': item.type,
-            'thumbnail_path': item.thumbnail_path if not USE_CLOUD_STORAGE else None,
+            'thumbnail_path': item.thumbnail_path,
             'size': item.size,
             'can_access': item.id not in restricted_items,
             'icon': 'fa-folder' if item.type == 'folder' else get_file_icon(item.mime_type)
@@ -687,22 +603,11 @@ def download_item(item_id):
     if item.type == 'folder':
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            if USE_CLOUD_STORAGE:
-                prefix = item.file_path
-                paginator = s3_client.get_paginator('list_objects_v2')
-                for page in paginator.paginate(Bucket=CLOUD_STORAGE_BUCKET, Prefix=prefix):
-                    if 'Contents' in page:
-                        for obj in page['Contents']:
-                            key = obj['Key']
-                            if key != prefix + '/':
-                                response = s3_client.get_object(Bucket=CLOUD_STORAGE_BUCKET, Key=key)
-                                zipf.writestr(key.replace(prefix, ''), response['Body'].read())
-            else:
-                for root, dirs, files in os.walk(item.file_path):
-                    for file in files:
-                        file_path = os.path.join(root, file)
-                        arcname = os.path.relpath(file_path, item.file_path)
-                        zipf.write(file_path, arcname)
+            for root, dirs, files in os.walk(item.file_path):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, item.file_path)
+                    zipf.write(file_path, arcname)
         
         zip_buffer.seek(0)
         
@@ -718,15 +623,7 @@ def download_item(item_id):
             mimetype='application/zip'
         )
     else:
-        if USE_CLOUD_STORAGE:
-            url = s3_client.generate_presigned_url(
-                'get_object',
-                Params={'Bucket': CLOUD_STORAGE_BUCKET, 'Key': item.file_path},
-                ExpiresIn=3600
-            )
-            return redirect(url)
-        else:
-            return send_file(item.file_path, as_attachment=True, download_name=item.name)
+        return send_file(item.file_path, as_attachment=True, download_name=item.name)
 
 @app.route('/logout')
 def logout():
