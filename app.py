@@ -300,8 +300,9 @@ def admin_login():
     return render_template('admin_login.html')
 
 @app.route('/admin/dashboard')
+@app.route('/admin/dashboard/<int:folder_id>')
 @admin_required
-def admin_dashboard():
+def admin_dashboard(folder_id=None):
     try:
         total_users = User.query.count()
         total_files = Item.query.filter_by(type='file').count()
@@ -324,8 +325,16 @@ def admin_dashboard():
             'device_count': u[4]
         } for u in users_data]
 
-        # All items (safe for JSON)
-        items = Item.query.order_by(Item.type.desc(), Item.name).all()
+        # Folder navigation
+        current_folder = None
+        if folder_id:
+            current_folder = Item.query.get(folder_id)
+            if not current_folder or current_folder.type != 'folder':
+                flash('Invalid folder', 'error')
+                return redirect(url_for('admin_dashboard'))
+        
+        # Items inside current folder
+        items = Item.query.filter_by(parent_id=folder_id).order_by(Item.type.desc(), Item.name).all()
         items_list = [{
             'id': item.id,
             'name': item.name,
@@ -335,14 +344,21 @@ def admin_dashboard():
             'parent_id': item.parent_id
         } for item in items]
 
-        # Folders (safe for JSON + Jinja dropdowns)
-        folders = Item.query.filter_by(type='folder').order_by(Item.name).all()
-        folders_list = [{
-            'id': f.id,
-            'name': f.name,
-            'parent_id': f.parent_id,
-            'created_at': f.created_at.strftime('%Y-%m-%d %H:%M') if f.created_at else None
-        } for f in folders]
+        # Breadcrumb
+        breadcrumb = []
+        if folder_id:
+            temp_id = folder_id
+            while temp_id:
+                crumb = Item.query.get(temp_id)
+                if crumb:
+                    breadcrumb.insert(0, {'id': crumb.id, 'name': crumb.name})
+                    temp_id = crumb.parent_id
+                else:
+                    break
+
+        # All folders for dropdowns (optional)
+        all_folders = Item.query.filter_by(type='folder').order_by(Item.name).all()
+        folders_list = [{'id': f.id, 'name': f.name, 'parent_id': f.parent_id} for f in all_folders]
 
         return render_template('admin_dashboard.html', 
                              total_users=total_users, 
@@ -350,8 +366,11 @@ def admin_dashboard():
                              total_folders=total_folders, 
                              total_downloads=total_downloads,
                              users=user_list, 
-                             items=items_list, 
-                             folders=folders_list)
+                             items=items_list,
+                             folders=folders_list,
+                             current_folder=current_folder,
+                             breadcrumb=breadcrumb,
+                             folder_id=folder_id)
 
     except Exception as e:
         logger.error(f"Admin dashboard error: {e}", exc_info=True)
@@ -370,7 +389,7 @@ def create_pin():
     except Exception as e:
         db.session.rollback()
         flash('Failed to create PIN', 'error')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('admin_dashboard', folder_id=request.args.get('folder_id')))
 
 @app.route('/admin/revoke_pin/<int:user_id>')
 @admin_required
@@ -382,7 +401,7 @@ def revoke_pin(user_id):
         flash(f'PIN {user.pin} revoked', 'success')
     else:
         flash('User not found', 'error')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('admin_dashboard', folder_id=request.args.get('folder_id')))
 
 @app.route('/admin/activate_pin/<int:user_id>')
 @admin_required
@@ -394,7 +413,7 @@ def activate_pin(user_id):
         flash(f'PIN {user.pin} activated', 'success')
     else:
         flash('User not found', 'error')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('admin_dashboard', folder_id=request.args.get('folder_id')))
 
 @app.route('/admin/delete_pin/<int:user_id>')
 @admin_required
@@ -407,7 +426,7 @@ def delete_pin(user_id):
         flash(f'User {pin} permanently deleted', 'success')
     else:
         flash('User not found', 'error')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('admin_dashboard', folder_id=request.args.get('folder_id')))
 
 @app.route('/admin/user_devices/<int:user_id>')
 @admin_required
@@ -428,7 +447,7 @@ def upload_item():
     
     if not name:
         flash('Name required', 'error')
-        return redirect(url_for('admin_dashboard'))
+        return redirect(url_for('admin_dashboard', folder_id=parent_id))
     
     if parent_id:
         parent = Item.query.get(parent_id)
@@ -480,12 +499,13 @@ def upload_item():
     else:
         flash('Please provide a file for file type upload', 'error')
     
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('admin_dashboard', folder_id=parent_id))
 
 @app.route('/admin/delete_item/<int:item_id>')
 @admin_required
 def delete_item(item_id):
     item = Item.query.get(item_id)
+    parent_id = item.parent_id if item else None
     if item:
         name = item.name
         if item.type == 'folder' and item.file_path and os.path.exists(item.file_path):
@@ -501,7 +521,7 @@ def delete_item(item_id):
         flash(f'"{name}" permanently deleted', 'success')
     else:
         flash('Item not found', 'error')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('admin_dashboard', folder_id=parent_id))
 
 @app.route('/admin/get_permissions/<int:user_id>')
 @admin_required
@@ -523,7 +543,9 @@ def update_permissions():
     
     db.session.commit()
     flash('Permissions updated successfully!', 'success')
-    return redirect(url_for('admin_dashboard'))
+    # Redirect back to the same folder
+    folder_id = request.args.get('folder_id')
+    return redirect(url_for('admin_dashboard', folder_id=folder_id))
 
 @app.route('/admin/logout')
 def admin_logout():
