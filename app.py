@@ -6,6 +6,7 @@ import hashlib
 import logging
 import mimetypes
 import sys
+import time
 import socket
 from datetime import datetime, timedelta
 from functools import wraps
@@ -15,7 +16,6 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
 from sqlalchemy import func, text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import Integer, String, Boolean, DateTime, Text, BigInteger, ForeignKey
@@ -24,16 +24,9 @@ from PIL import Image
 
 load_dotenv()
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)s %(name)s %(message)s',
-    handlers=[logging.StreamHandler(sys.stderr)]
-)
-logger = logging.getLogger(__name__)
-
 print("=" * 50, file=sys.stderr)
 print("🚀 JUSTICE VAULT APPLICATION STARTING", file=sys.stderr)
+print(f"🐍 Python version: {sys.version}", file=sys.stderr)
 print("=" * 50, file=sys.stderr)
 sys.stderr.flush()
 
@@ -45,14 +38,16 @@ app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 IS_RENDER = bool(os.environ.get('RENDER'))
 IS_PRODUCTION = os.environ.get('FLASK_ENV') == 'production'
 
-app.config['SESSION_COOKIE_SECURE'] = IS_PRODUCTION
+print(f"📡 Environment: {'RENDER' if IS_RENDER else 'LOCAL'}", file=sys.stderr)
+
+app.config['SESSION_COOKIE_SECURE'] = False
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 app.config['SESSION_REFRESH_EACH_REQUEST'] = False
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
 
-# Storage paths
+# Storage
 if IS_RENDER:
     app.config['UPLOAD_FOLDER'] = '/tmp/storage/files'
     app.config['THUMBNAIL_FOLDER'] = '/tmp/storage/thumbnails'
@@ -63,11 +58,13 @@ else:
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['THUMBNAIL_FOLDER'], exist_ok=True)
 
-# Database configuration
+# Database - PostgreSQL for production, SQLite for local
 database_url = os.environ.get('DATABASE_URL')
+
 if not database_url:
     database_url = 'sqlite:///database/vault.db?check_same_thread=False'
     os.makedirs('database', exist_ok=True)
+    print("📀 Using SQLite database (local only)", file=sys.stderr)
 
 if database_url and database_url.startswith('postgres://'):
     database_url = database_url.replace('postgres://', 'postgresql://', 1)
@@ -75,7 +72,7 @@ if database_url and database_url.startswith('postgres://'):
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Connection pooling
+# Connection pool for 100 concurrent users
 if database_url and 'postgresql' in database_url:
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'pool_size': 20,
@@ -93,7 +90,14 @@ else:
     }
 
 db = SQLAlchemy(app)
-migrate = Migrate(app, db)  # ← This enables migrations!
+
+# ==================== LOGGING ====================
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(name)s %(message)s',
+    handlers=[logging.StreamHandler(sys.stderr)]
+)
+logger = logging.getLogger(__name__)
 
 # ==================== DATABASE MODELS ====================
 class User(db.Model):
@@ -152,15 +156,12 @@ class Download(db.Model):
 
 # ==================== HELPER FUNCTIONS ====================
 def parse_user_agent(ua_string):
-    try:
-        ua = user_agents.parse(ua_string)
-        return {
-            'device_type': str(ua.device.family),
-            'browser': str(ua.browser.family),
-            'os': str(ua.os.family)
-        }
-    except:
-        return {'device_type': 'Unknown', 'browser': 'Unknown', 'os': 'Unknown'}
+    ua = user_agents.parse(ua_string)
+    return {
+        'device_type': ua.device.family,
+        'browser': ua.browser.family,
+        'os': ua.os.family
+    }
 
 def log_device_access(user_id, request):
     try:
@@ -168,7 +169,7 @@ def log_device_access(user_id, request):
         device_log = DeviceLog(
             user_id=user_id,
             ip_address=request.remote_addr,
-            user_agent=request.user_agent.string[:500],
+            user_agent=request.user_agent.string,
             device_type=ua_info['device_type'],
             browser=ua_info['browser'],
             os=ua_info['os']
@@ -210,11 +211,11 @@ def get_file_icon(mime_type):
 
 def create_thumbnail(file_path, thumbnail_path, size=(300, 300)):
     try:
-        with Image.open(file_path) as img:
-            if img.mode in ('RGBA', 'P'):
-                img = img.convert('RGB')
-            img.thumbnail(size, Image.Resampling.LANCZOS)
-            img.save(thumbnail_path, 'JPEG', quality=85, optimize=True)
+        img = Image.open(file_path)
+        if img.mode in ('RGBA', 'P'):
+            img = img.convert('RGB')
+        img.thumbnail(size, Image.Resampling.LANCZOS)
+        img.save(thumbnail_path, 'JPEG', quality=85, optimize=True)
         return True
     except Exception as e:
         logger.error(f"Thumbnail creation error: {e}")
@@ -222,52 +223,27 @@ def create_thumbnail(file_path, thumbnail_path, size=(300, 300)):
 
 def delete_file_from_storage(file_path):
     try:
-        if file_path and os.path.exists(file_path):
+        if os.path.exists(file_path):
             os.remove(file_path)
         return True
     except Exception as e:
         logger.error(f"Failed to delete file {file_path}: {e}")
         return False
 
-# ==================== DATABASE MIGRATION HELPERS ====================
-def check_and_migrate_database():
-    """Check if database needs migration and run it"""
-    with app.app_context():
-        try:
-            # Check if tables exist
-            inspector = db.inspect(db.engine)
-            existing_tables = inspector.get_table_names()
-            
-            if not existing_tables:
-                print("📦 No tables found. Creating fresh database...", file=sys.stderr)
-                db.create_all()
-                print("✅ Database created successfully!", file=sys.stderr)
-                return
-            
-            print("📊 Existing tables found. Checking for migrations...", file=sys.stderr)
-            
-            # Check for specific columns that might be missing
-            if 'items' in existing_tables:
-                columns = [col['name'] for col in inspector.get_columns('items')]
-                
-                # Add missing columns if needed
-                if 'original_filename' not in columns:
-                    print("➕ Adding missing column: original_filename", file=sys.stderr)
-                    with db.engine.connect() as conn:
-                        conn.execute(text("ALTER TABLE items ADD COLUMN original_filename VARCHAR(500)"))
-                        conn.commit()
-                
-                if 'mime_type' not in columns:
-                    print("➕ Adding missing column: mime_type", file=sys.stderr)
-                    with db.engine.connect() as conn:
-                        conn.execute(text("ALTER TABLE items ADD COLUMN mime_type VARCHAR(200)"))
-                        conn.commit()
-            
-            print("✅ Database check complete!", file=sys.stderr)
-            
-        except Exception as e:
-            print(f"⚠️ Database check warning: {e}", file=sys.stderr)
-            # Don't fail on migration issues - just log them
+# ==================== DATABASE INITIALIZATION ====================
+def init_database():
+    try:
+        with app.app_context():
+            if database_url and 'postgresql' in database_url:
+                socket.setdefaulttimeout(10)
+            db.engine.dispose()
+            db.engine.connect()
+            db.create_all()
+            print("✅ Database initialized successfully", file=sys.stderr)
+            return True
+    except Exception as e:
+        print(f"❌ Database init failed: {e}", file=sys.stderr)
+        return False
 
 # ==================== AUTHENTICATION ====================
 ADMIN_PASSWORD_HASH = hashlib.sha256(os.environ.get('ADMIN_PASSWORD', 'admin123').encode()).hexdigest()
@@ -292,7 +268,7 @@ def health_check():
 
 @app.route('/health/simple')
 def simple_health():
-    return jsonify({"status": "alive"}), 200
+    return jsonify({"status": "alive", "port": os.environ.get('PORT', 5000)}), 200
 
 # ==================== THUMBNAIL SERVING ====================
 @app.route('/thumbnail/<path:filename>')
@@ -351,6 +327,7 @@ def admin_dashboard():
                 'device_count': u[4]
             })
         
+        # Get all items with proper formatting for JSON serialization
         items = Item.query.order_by(Item.type.desc(), Item.name).all()
         items_list = []
         for item in items:
@@ -358,7 +335,7 @@ def admin_dashboard():
                 'id': item.id,
                 'name': item.name,
                 'type': item.type,
-                'size': item.size,
+                'size': item.size if item.size else None,
                 'created_at': item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else None,
                 'parent_id': item.parent_id
             })
@@ -375,7 +352,7 @@ def admin_dashboard():
                              folders=folders)
     except Exception as e:
         logger.error(f"Admin dashboard error: {e}", exc_info=True)
-        flash(f'Error loading dashboard', 'error')
+        flash(f'Error loading dashboard: {str(e)}', 'error')
         return redirect(url_for('admin_login'))
 
 @app.route('/admin/create_pin', methods=['POST'])
@@ -450,6 +427,7 @@ def upload_item():
         flash('Name required', 'error')
         return redirect(url_for('admin_dashboard'))
     
+    # Validate parent exists if provided
     if parent_id:
         parent = Item.query.get(parent_id)
         if not parent or parent.type != 'folder':
@@ -536,8 +514,10 @@ def update_permissions():
     restricted_items_str = request.form.get('restricted_items', '')
     restricted_items = [int(x) for x in restricted_items_str.split(',') if x]
     
+    # Delete all existing permissions for this user
     UserItemPermission.query.filter_by(user_id=user_id).delete()
     
+    # Add new restricted permissions
     for item_id in restricted_items:
         db.session.add(UserItemPermission(user_id=user_id, item_id=item_id, can_access=False))
     
@@ -580,7 +560,7 @@ def user_vault():
     parent_id = request.args.get('folder', None)
     
     if parent_id and parent_id != 'None':
-        parent_id_int = int(parent_id)
+        parent_id_int = int(parent_id) if parent_id else None
         items = Item.query.filter_by(parent_id=parent_id_int).order_by(Item.type.desc(), Item.name).all()
     else:
         items = Item.query.filter_by(parent_id=None).order_by(Item.type.desc(), Item.name).all()
@@ -593,11 +573,8 @@ def user_vault():
             thumbnail_url = url_for('serve_thumbnail', filename=os.path.basename(item.thumbnail_path))
         
         items_with_access.append({
-            'id': item.id, 
-            'name': item.name, 
-            'type': item.type,
-            'thumbnail_url': thumbnail_url, 
-            'size': item.size,
+            'id': item.id, 'name': item.name, 'type': item.type,
+            'thumbnail_url': thumbnail_url, 'size': item.size,
             'can_access': item.id not in restricted_items,
             'icon': 'fa-folder' if item.type == 'folder' else get_file_icon(item.mime_type)
         })
@@ -638,16 +615,13 @@ def download_item(item_id):
     
     if item.type == 'folder':
         zip_buffer = BytesIO()
-        folder_path = item.file_path if item.file_path and os.path.exists(item.file_path) else None
-        
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            if folder_path:
-                for root, dirs, files in os.walk(folder_path):
+            if item.file_path and os.path.exists(item.file_path):
+                for root, dirs, files in os.walk(item.file_path):
                     for file in files:
                         file_path = os.path.join(root, file)
-                        arcname = os.path.relpath(file_path, folder_path)
+                        arcname = os.path.relpath(file_path, item.file_path)
                         zipf.write(file_path, arcname)
-        
         zip_buffer.seek(0)
         
         @after_this_request
@@ -693,8 +667,7 @@ def server_error(e):
 
 # ==================== INITIALIZATION ====================
 with app.app_context():
-    # Run automatic migration check
-    check_and_migrate_database()
+    init_database()
 
 print("=" * 50, file=sys.stderr)
 print("✅ JUSTICE VAULT APP IS READY", file=sys.stderr)
