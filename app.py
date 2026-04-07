@@ -318,13 +318,26 @@ def admin_dashboard():
         ).order_by(User.created_at.desc()).all()
         
         user_list = [{'id': u[0], 'pin': u[1], 'created_at': u[2], 'is_active': u[3], 'device_count': u[4]} for u in users_data]
-        items = Item.query.order_by(Item.created_at.desc()).limit(100).all()
+        
+        # Get all items with proper formatting
+        items = Item.query.order_by(Item.type.desc(), Item.name).all()
+        items_list = []
+        for item in items:
+            items_list.append({
+                'id': item.id,
+                'name': item.name,
+                'type': item.type,
+                'size': item.size,
+                'created_at': item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else 'N/A',
+                'parent_id': item.parent_id
+            })
+        
         folders = Item.query.filter_by(type='folder').order_by(Item.name).all()
         
         return render_template('admin_dashboard.html', 
                              total_users=total_users, total_files=total_files,
                              total_folders=total_folders, total_downloads=total_downloads,
-                             users=user_list, items=items, folders=folders)
+                             users=user_list, items=items_list, folders=folders)
     except Exception as e:
         logger.error(f"Admin dashboard error: {e}", exc_info=True)
         flash(f'Error loading dashboard', 'error')
@@ -402,10 +415,13 @@ def upload_item():
         flash('Name required', 'error')
         return redirect(url_for('admin_dashboard'))
     
+    # Validate parent exists if provided
+    if parent_id:
+        parent = Item.query.get(parent_id)
+        if not parent or parent.type != 'folder':
+            parent_id = None
+    
     if item_type == 'folder':
-        folder_path = os.path.join(app.config['UPLOAD_FOLDER'], f"folder_{secrets.token_hex(16)}")
-        os.makedirs(folder_path, exist_ok=True)
-        
         thumbnail_path = None
         if picture and picture.filename:
             thumb_filename = f"thumb_{secrets.token_hex(16)}.jpg"
@@ -413,11 +429,11 @@ def upload_item():
             picture.save(thumb_full_path)
             thumbnail_path = thumb_full_path
         
-        item = Item(name=name, type='folder', file_path=folder_path, 
+        item = Item(name=name, type='folder', file_path=None, 
                    thumbnail_path=thumbnail_path, parent_id=parent_id)
         db.session.add(item)
         db.session.commit()
-        flash(f'Folder "{name}" created', 'success')
+        flash(f'Folder "{name}" created successfully!', 'success')
         
     elif item_type == 'file' and file and file.filename:
         original_filename = secure_filename(file.filename)
@@ -446,9 +462,9 @@ def upload_item():
                    parent_id=parent_id, size=file_size, mime_type=mime_type)
         db.session.add(item)
         db.session.commit()
-        flash(f'File "{name}" uploaded', 'success')
+        flash(f'File "{name}" uploaded successfully!', 'success')
     else:
-        flash('Please provide a file', 'error')
+        flash('Please provide a file for file type upload', 'error')
     
     return redirect(url_for('admin_dashboard'))
 
@@ -458,9 +474,9 @@ def delete_item(item_id):
     item = Item.query.get(item_id)
     if item:
         name = item.name
-        if item.type == 'folder' and os.path.exists(item.file_path):
+        if item.type == 'folder' and item.file_path and os.path.exists(item.file_path):
             shutil.rmtree(item.file_path)
-        elif item.type == 'file':
+        elif item.type == 'file' and item.file_path:
             delete_file_from_storage(item.file_path)
         
         if item.thumbnail_path and os.path.exists(item.thumbnail_path):
@@ -483,15 +499,18 @@ def get_permissions(user_id):
 @admin_required
 def update_permissions():
     user_id = request.form.get('user_id')
-    restricted_items = request.form.getlist('restricted_items')
+    restricted_items_str = request.form.get('restricted_items', '')
+    restricted_items = [int(x) for x in restricted_items_str.split(',') if x]
     
+    # Delete all existing permissions for this user
     UserItemPermission.query.filter_by(user_id=user_id).delete()
     
+    # Add new restricted permissions
     for item_id in restricted_items:
         db.session.add(UserItemPermission(user_id=user_id, item_id=item_id, can_access=False))
     
     db.session.commit()
-    flash('Permissions updated', 'success')
+    flash('Permissions updated successfully!', 'success')
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/logout')
@@ -529,7 +548,8 @@ def user_vault():
     parent_id = request.args.get('folder', None)
     
     if parent_id and parent_id != 'None':
-        items = Item.query.filter_by(parent_id=parent_id).order_by(Item.type.desc(), Item.name).all()
+        parent_id_int = int(parent_id) if parent_id else None
+        items = Item.query.filter_by(parent_id=parent_id_int).order_by(Item.type.desc(), Item.name).all()
     else:
         items = Item.query.filter_by(parent_id=None).order_by(Item.type.desc(), Item.name).all()
         parent_id = None
@@ -549,7 +569,7 @@ def user_vault():
     
     breadcrumb = []
     if parent_id:
-        temp_id = parent_id
+        temp_id = int(parent_id)
         while temp_id:
             crumb = Item.query.get(temp_id)
             if crumb:
@@ -584,11 +604,12 @@ def download_item(item_id):
     if item.type == 'folder':
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for root, dirs, files in os.walk(item.file_path):
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    arcname = os.path.relpath(file_path, item.file_path)
-                    zipf.write(file_path, arcname)
+            if item.file_path and os.path.exists(item.file_path):
+                for root, dirs, files in os.walk(item.file_path):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        arcname = os.path.relpath(file_path, item.file_path)
+                        zipf.write(file_path, arcname)
         zip_buffer.seek(0)
         
         @after_this_request
@@ -598,6 +619,10 @@ def download_item(item_id):
         
         return send_file(zip_buffer, as_attachment=True, download_name=f"{item.name}.zip", mimetype='application/zip')
     else:
+        if not item.file_path or not os.path.exists(item.file_path):
+            flash('File not found on server', 'error')
+            return redirect(url_for('user_vault'))
+        
         download_filename = item.original_filename if item.original_filename else item.name
         if '.' not in download_filename and item.mime_type:
             ext = mimetypes.guess_extension(item.mime_type)
