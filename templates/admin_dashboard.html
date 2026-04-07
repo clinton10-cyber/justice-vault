@@ -90,6 +90,28 @@
     }
     .badge-folder { background: #fef3c7; color: #d97706; }
     .badge-file { background: #e0e7ff; color: #4f46e5; }
+    .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+        padding: 10px 0;
+    }
+    .breadcrumb a {
+        color: #667eea;
+        text-decoration: none;
+    }
+    .breadcrumb a:hover {
+        text-decoration: underline;
+    }
+    .folder-card {
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    .folder-card:hover {
+        transform: translateY(-3px);
+    }
 </style>
 
 <div style="background: #f7fafc; min-height: 100vh;">
@@ -123,13 +145,28 @@
             </div>
         </div>
 
-        <!-- Quick Actions -->
+        <!-- Breadcrumb Navigation -->
+        <div class="breadcrumb">
+            <a href="{{ url_for('admin_dashboard') }}"><i class="fas fa-home"></i> Root</a>
+            {% for crumb in breadcrumb %}
+                <span>/</span>
+                <a href="{{ url_for('admin_dashboard', folder_id=crumb.id) }}">{{ crumb.name }}</a>
+            {% endfor %}
+        </div>
+
+        <!-- Quick Actions (create folder/upload file inside current folder) -->
         <div style="background: white; padding: 24px; border-radius: 12px; margin-bottom: 30px;">
-            <h2>Quick Actions</h2>
-            <button onclick="openUploadModal()" class="action-btn" style="background: #10b981; color: white; margin-right: 12px;">
+            <h2>Quick Actions 
+                {% if current_folder %}
+                    <small style="font-size: 14px; color: #666;">in folder: {{ current_folder.name }}</small>
+                {% else %}
+                    <small style="font-size: 14px; color: #666;">in Root</small>
+                {% endif %}
+            </h2>
+            <button onclick="openUploadModal({{ folder_id if folder_id else 'null' }})" class="action-btn" style="background: #10b981; color: white; margin-right: 12px;">
                 <i class="fas fa-upload"></i> Upload File
             </button>
-            <button onclick="openFolderModal()" class="action-btn" style="background: #3b82f6; color: white;">
+            <button onclick="openFolderModal({{ folder_id if folder_id else 'null' }})" class="action-btn" style="background: #3b82f6; color: white;">
                 <i class="fas fa-folder-plus"></i> Create Folder
             </button>
         </div>
@@ -159,7 +196,7 @@
                                 Manage Access
                             </button>
                             <a href="{{ url_for('user_devices', user_id=user.id) }}" style="background:#3b82f6;color:white;padding:6px 12px;border-radius:6px;text-decoration:none;margin:2px;">Devices</a>
-                            <a href="{{ url_for('delete_pin', user_id=user.id) }}" onclick="return confirm('Delete this PIN permanently?')" style="background:#ef4444;color:white;padding:6px 12px;border-radius:6px;text-decoration:none;margin:2px;">Delete</a>
+                            <a href="{{ url_for('delete_pin', user_id=user.id) }}?folder_id={{ folder_id }}" onclick="return confirm('Delete this PIN permanently?')" style="background:#ef4444;color:white;padding:6px 12px;border-radius:6px;text-decoration:none;margin:2px;">Delete</a>
                         </td>
                     </tr>
                     {% endfor %}
@@ -167,26 +204,49 @@
             </table>
         </div>
 
-        <!-- Items Table -->
+        <!-- Vault Items Table (with folder navigation) -->
         <div style="background: white; border-radius: 12px; padding: 20px; overflow-x: auto;">
-            <h2>Vault Items</h2>
-            <table class="item-table">
-                <thead>
-                    <tr><th>Name</th><th>Type</th><th>Size</th><th>Created</th><th>Actions</th></tr>
-                </thead>
-                <tbody>
-                    {% for item in items %}
-                    <tr>
-                        <td><i class="fas {{ 'fa-folder' if item.type == 'folder' else 'fa-file' }}"></i> {{ item.name }}</td>
-                        <td><span class="badge {{ 'badge-folder' if item.type == 'folder' else 'badge-file' }}">{{ item.type }}</span></td>
-                        <td>{% if item.size %}{{ (item.size / 1024 / 1024)|round(2) }} MB{% else %}—{% endif %}</td>
-                        <td>{{ item.created_at }}</td>
-                        <td><a href="{{ url_for('delete_item', item_id=item.id) }}" onclick="return confirm('Delete this item permanently?')" style="color:#ef4444;"><i class="fas fa-trash"></i> Delete</a></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <h2>Contents 
+                {% if current_folder %}
+                    of "{{ current_folder.name }}"
+                {% else %}
+                    of Root
+                {% endif %}
+            </h2>
+            {% if items %}
+                <table class="item-table">
+                    <thead>
+                        <tr><th>Name</th><th>Type</th><th>Size</th><th>Created</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td>
+                                {% if item.type == 'folder' %}
+                                    <a href="{{ url_for('admin_dashboard', folder_id=item.id) }}" style="color: #3b82f6; text-decoration: none;">
+                                        <i class="fas fa-folder"></i> {{ item.name }}
+                                    </a>
+                                {% else %}
+                                    <i class="fas fa-file"></i> {{ item.name }}
+                                {% endif %}
+                            </td>
+                            <td><span class="badge {{ 'badge-folder' if item.type == 'folder' else 'badge-file' }}">{{ item.type }}</span></td>
+                            <td>{% if item.size %}{{ (item.size / 1024 / 1024)|round(2) }} MB{% else %}—{% endif %}</td>
+                            <td>{{ item.created_at }}</td>
+                            <td>
+                                <a href="{{ url_for('delete_item', item_id=item.id) }}?folder_id={{ folder_id }}" onclick="return confirm('Delete this item permanently?')" style="color:#ef4444;">
+                                    <i class="fas fa-trash"></i> Delete
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p style="text-align: center; color: #666; padding: 40px;">This folder is empty. Use the buttons above to add files or folders.</p>
+            {% endif %}
         </div>
+
     </div>
 </div>
 
@@ -196,23 +256,23 @@
         <h3><i class="fas fa-upload"></i> Upload File</h3>
         <form method="POST" action="{{ url_for('upload_item') }}" enctype="multipart/form-data">
             <input type="hidden" name="type" value="file">
+            <input type="hidden" name="parent_id" id="uploadParentId" value="{{ folder_id if folder_id else '' }}">
+            
             <label>Name:</label>
             <input type="text" name="name" id="uploadName" required style="width:100%; padding:10px; margin:8px 0; border-radius:6px; border:1px solid #ccc;">
+            
             <div class="upload-area" id="dropZone">
                 <i class="fas fa-cloud-upload-alt" style="font-size:50px; color:#667eea;"></i>
                 <p>Click or drag & drop file here</p>
                 <input type="file" name="file" id="fileInput" style="display:none;" onchange="handleFileSelect(this)">
             </div>
+
             <label style="margin-top:15px;">Folder Icon (optional):</label>
             <input type="file" name="picture" accept="image/*" style="width:100%; padding:8px;">
-            <label style="margin-top:15px;">Parent Folder:</label>
-            <select name="parent_id" style="width:100%; padding:10px; border-radius:6px;">
-                <option value="">Root Directory</option>
-                {% for folder in folders %}
-                <option value="{{ folder.id }}">{{ folder.name }}</option>
-                {% endfor %}
-            </select>
-            <button type="submit" style="width:100%; margin-top:20px; padding:14px; background:#10b981; color:white; border:none; border-radius:8px; font-size:16px;">Upload File</button>
+
+            <button type="submit" style="width:100%; margin-top:20px; padding:14px; background:#10b981; color:white; border:none; border-radius:8px; font-size:16px;">
+                Upload File
+            </button>
         </form>
         <button onclick="closeUploadModal()" style="width:100%; margin-top:10px; padding:12px;">Cancel</button>
     </div>
@@ -224,18 +284,17 @@
         <h3><i class="fas fa-folder-plus"></i> Create New Folder</h3>
         <form method="POST" action="{{ url_for('upload_item') }}" enctype="multipart/form-data">
             <input type="hidden" name="type" value="folder">
+            <input type="hidden" name="parent_id" id="folderParentId" value="{{ folder_id if folder_id else '' }}">
+            
             <label>Folder Name:</label>
             <input type="text" name="name" required style="width:100%; padding:10px; margin:8px 0; border-radius:6px; border:1px solid #ccc;">
+            
             <label style="margin-top:15px;">Folder Icon (optional):</label>
             <input type="file" name="picture" accept="image/*" style="width:100%; padding:8px;">
-            <label style="margin-top:15px;">Parent Folder:</label>
-            <select name="parent_id" style="width:100%; padding:10px; border-radius:6px;">
-                <option value="">Root Directory</option>
-                {% for folder in folders %}
-                <option value="{{ folder.id }}">{{ folder.name }}</option>
-                {% endfor %}
-            </select>
-            <button type="submit" style="width:100%; margin-top:20px; padding:14px; background:#3b82f6; color:white; border:none; border-radius:8px; font-size:16px;">Create Folder</button>
+            
+            <button type="submit" style="width:100%; margin-top:20px; padding:14px; background:#3b82f6; color:white; border:none; border-radius:8px; font-size:16px;">
+                Create Folder
+            </button>
         </form>
         <button onclick="closeFolderModal()" style="width:100%; margin-top:10px; padding:12px;">Cancel</button>
     </div>
@@ -255,16 +314,26 @@
 </div>
 
 <script>
-    // Embed all items from the server into a JavaScript variable
+    // Embed all items from the server (for permission modal)
     const allItems = {{ items | tojson }};
     let currentUserId = null;
-    let currentRestrictedIds = [];   // list of item IDs that are restricted for this user
+    let currentRestrictedIds = [];
 
     // Modal control functions
-    function openUploadModal() { document.getElementById('uploadModal').style.display = 'flex'; }
+    function openUploadModal(folderId) {
+        const parentInput = document.getElementById('uploadParentId');
+        if (parentInput) parentInput.value = folderId || '';
+        document.getElementById('uploadModal').style.display = 'flex';
+    }
     function closeUploadModal() { document.getElementById('uploadModal').style.display = 'none'; }
-    function openFolderModal() { document.getElementById('createFolderModal').style.display = 'flex'; }
+    
+    function openFolderModal(folderId) {
+        const parentInput = document.getElementById('folderParentId');
+        if (parentInput) parentInput.value = folderId || '';
+        document.getElementById('createFolderModal').style.display = 'flex';
+    }
     function closeFolderModal() { document.getElementById('createFolderModal').style.display = 'none'; }
+    
     function closePermissionModal() { document.getElementById('permissionModal').style.display = 'none'; }
 
     // Click outside to close
@@ -300,7 +369,6 @@
         currentUserId = userId;
         document.getElementById('modalUserPin').innerText = userPin;
         
-        // Fetch current restricted items for this user
         try {
             const response = await fetch(`/admin/get_permissions/${userId}`);
             const data = await response.json();
@@ -318,8 +386,6 @@
         if (!grid) return;
         grid.innerHTML = '';
         
-        // Display only files and folders that are not in a restricted parent? For simplicity, show all items.
-        // But you may want to show only top-level or all. Here we show all items from the server.
         for (const item of allItems) {
             const isRestricted = currentRestrictedIds.includes(item.id);
             const div = document.createElement('div');
@@ -341,12 +407,10 @@
     function toggleItemRestriction(itemId, element) {
         const idx = currentRestrictedIds.indexOf(itemId);
         if (idx === -1) {
-            // Currently accessible → restrict
             currentRestrictedIds.push(itemId);
             element.classList.remove('accessible');
             element.classList.add('restricted');
         } else {
-            // Currently restricted → allow access
             currentRestrictedIds.splice(idx, 1);
             element.classList.remove('restricted');
             element.classList.add('accessible');
@@ -358,9 +422,12 @@
         const formData = new URLSearchParams();
         formData.append('user_id', currentUserId);
         formData.append('restricted_items', currentRestrictedIds.join(','));
+        // pass current folder_id to return to same folder after saving
+        const folderId = {{ folder_id if folder_id else 'null' }};
+        formData.append('folder_id', folderId !== null ? folderId : '');
         
         try {
-            const response = await fetch('/admin/update_permissions', {
+            const response = await fetch('/admin/update_permissions?' + new URLSearchParams({folder_id: folderId !== null ? folderId : ''}), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: formData.toString()
@@ -368,6 +435,7 @@
             if (response.ok) {
                 alert('Permissions updated successfully!');
                 closePermissionModal();
+                location.reload(); // refresh to reflect any changes
             } else {
                 alert('Failed to update permissions. Server error.');
             }
@@ -377,7 +445,6 @@
         }
     }
 
-    // Helper to escape HTML to prevent XSS
     function escapeHtml(str) {
         if (!str) return '';
         return str.replace(/[&<>]/g, function(m) {
@@ -388,6 +455,6 @@
         });
     }
 
-    console.log("✅ Admin Dashboard fully loaded with permission management.");
+    console.log("✅ Admin Dashboard with folder navigation loaded.");
 </script>
 {% endblock %}
