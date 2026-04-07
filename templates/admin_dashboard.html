@@ -285,9 +285,9 @@
             </div>
             
             <div class="filter-buttons">
-                <button class="filter-btn active" onclick="filterItems('all')">All Items</button>
-                <button class="filter-btn" onclick="filterItems('accessible')">Accessible (Green)</button>
-                <button class="filter-btn" onclick="filterItems('restricted')">Restricted (Red)</button>
+                <button class="filter-btn active" onclick="filterItems('all', this)">All Items</button>
+                <button class="filter-btn" onclick="filterItems('accessible', this)">Accessible (Green)</button>
+                <button class="filter-btn" onclick="filterItems('restricted', this)">Restricted (Red)</button>
             </div>
             
             <div class="search-box">
@@ -408,7 +408,6 @@
     let currentAdminFolder = null;
     let allFolders = {{ folders | tojson | safe }};
 
-    // Modal functions
     function openUploadModal() {
         document.getElementById('uploadModal').style.display = 'flex';
         document.getElementById('uploadName').value = '';
@@ -428,7 +427,6 @@
         document.getElementById('createFolderModal').style.display = 'none';
     }
 
-    // File upload drag & drop
     const dropZone = document.getElementById('dropZone');
     if (dropZone) {
         dropZone.addEventListener('dragover', (e) => {
@@ -459,7 +457,6 @@
         }
     }
 
-    // Admin folder navigation
     function loadAdminItems(parentId) {
         const container = document.getElementById('adminItemsContainer');
         const itemsToShow = parentId ? allItems.filter(i => i.parent_id === parentId) : allItems.filter(i => !i.parent_id);
@@ -482,7 +479,7 @@
                 <td style="padding: 12px;">${item.size ? (item.size / 1024 / 1024).toFixed(1) + ' MB' : '-'}</td>
                 <td style="padding: 12px;">${item.created_at || 'N/A'}</td>
                 <td style="padding: 12px;">
-                    ${item.type === 'folder' ? `<button onclick="navigateAdminFolder(${item.id})" style="background: #4299e1; color: white; padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer; margin-right: 5px;"><i class="fas fa-folder-open"></i> Open</button>` : ''}
+                    \( {item.type === 'folder' ? `<button onclick="navigateAdminFolder( \){item.id})" style="background: #4299e1; color: white; padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer; margin-right: 5px;"><i class="fas fa-folder-open"></i> Open</button>` : ''}
                     <a href="/admin/delete_item/${item.id}" onclick="return confirm('PERMANENTLY DELETE ${escapeHtml(item.name)}?')" style="background: #f56565; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; display: inline-block;"><i class="fas fa-trash"></i> Delete</a>
                 </td>
             </tr>`;
@@ -496,7 +493,6 @@
         currentAdminFolder = folderId;
         loadAdminItems(folderId);
         
-        // Update breadcrumb
         const breadcrumb = document.getElementById('adminBreadcrumb');
         let crumbs = [];
         let tempId = folderId;
@@ -515,7 +511,6 @@
         breadcrumb.innerHTML = html;
     }
 
-    // Permissions management
     function selectUserForPermissions(userId, userName) {
         currentUserId = userId;
         document.getElementById('selectedUserName').textContent = userName;
@@ -523,7 +518,6 @@
         document.getElementById('permissionUserId').value = userId;
         selectedItems.clear();
         
-        // Fetch current permissions
         fetch(`/admin/get_permissions/${userId}`)
             .then(response => response.json())
             .then(data => {
@@ -536,7 +530,6 @@
                 renderPermissionGrid();
             });
         
-        // Scroll to permissions section
         document.getElementById('permissionsSection').scrollIntoView({ behavior: 'smooth' });
     }
 
@@ -544,14 +537,12 @@
         const grid = document.getElementById('permissionGrid');
         let filteredItems = [...allItems];
         
-        // Apply search filter
         if (currentSearch) {
             filteredItems = filteredItems.filter(item => 
                 item.name.toLowerCase().includes(currentSearch.toLowerCase())
             );
         }
         
-        // Apply access filter
         if (currentFilter === 'accessible') {
             filteredItems = filteredItems.filter(item => !currentRestricted.includes(item.id));
         } else if (currentFilter === 'restricted') {
@@ -598,7 +589,6 @@
             selectedItems.add(itemId);
         }
         
-        // Update visual
         const element = document.querySelector(`.permission-item[data-item-id="${itemId}"]`);
         if (element) {
             if (selectedItems.has(itemId)) {
@@ -627,23 +617,16 @@
         }
         
         if (action === 'grant') {
-            // Remove selected items from restricted list
             selectedItems.forEach(itemId => {
                 const index = currentRestricted.indexOf(itemId);
-                if (index !== -1) {
-                    currentRestricted.splice(index, 1);
-                }
+                if (index !== -1) currentRestricted.splice(index, 1);
             });
         } else if (action === 'revoke') {
-            // Add selected items to restricted list
             selectedItems.forEach(itemId => {
-                if (!currentRestricted.includes(itemId)) {
-                    currentRestricted.push(itemId);
-                }
+                if (!currentRestricted.includes(itemId)) currentRestricted.push(itemId);
             });
         }
         
-        // Save changes
         savePermissions();
         selectedItems.clear();
         renderPermissionGrid();
@@ -660,10 +643,10 @@
         selectedItems.clear();
     }
 
-    function filterItems(filter) {
+    function filterItems(filter, btn) {
         currentFilter = filter;
-        document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-        event.target.classList.add('active');
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
         renderPermissionGrid();
     }
 
@@ -678,16 +661,11 @@
         return div.innerHTML;
     }
 
-    // Close modals when clicking outside
     window.onclick = function(event) {
         const uploadModal = document.getElementById('uploadModal');
         const folderModal = document.getElementById('createFolderModal');
-        if (event.target === uploadModal) {
-            closeUploadModal();
-        }
-        if (event.target === folderModal) {
-            closeFolderModal();
-        }
+        if (event.target === uploadModal) closeUploadModal();
+        if (event.target === folderModal) closeFolderModal();
     }
 
     // Load initial admin items
