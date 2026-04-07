@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Justice Vault — Coach Odighiode | Secure Digital Archive</title>
-    <!-- Font Awesome 6 (free) -->
+    <title>Justice Vault | Secure Digital Archive</title>
+    <!-- Font Awesome 6 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <!-- Google Fonts: modern sans & monospace -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -17,13 +17,8 @@
 
         body {
             font-family: 'Inter', sans-serif;
-            background: #f4f6fc;
-            color: #0f172a;
-        }
-
-        /* smooth interactions */
-        a, button {
-            transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            background: #f0f2f8;
+            color: #0a0f2c;
         }
 
         /* custom scrollbar */
@@ -33,224 +28,215 @@
         }
         ::-webkit-scrollbar-track {
             background: #e2e8f0;
-            border-radius: 20px;
+            border-radius: 10px;
         }
         ::-webkit-scrollbar-thumb {
             background: #94a3b8;
-            border-radius: 20px;
+            border-radius: 10px;
         }
         ::-webkit-scrollbar-thumb:hover {
             background: #5b6e8c;
         }
 
-        /* animated gradient border for cards on hover */
-        .vault-item-card {
+        /* button and link transitions */
+        a, button {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        /* card hover effect */
+        .login-card {
             transition: transform 0.2s ease, box-shadow 0.3s ease;
         }
-        .vault-item-card:hover {
-            transform: translateY(-6px);
-            box-shadow: 0 20px 30px -12px rgba(0, 0, 0, 0.2);
+
+        /* focus states for accessibility */
+        input:focus {
+            outline: none;
+            border-color: #6366f1 !important;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
 
-        /* media gallery style for images: responsive thumbnail container */
-        .media-thumb {
-            transition: all 0.2s;
-        }
-        .media-thumb:hover {
-            filter: brightness(0.98);
+        button:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
         }
 
-        /* breadcrumb modern */
-        .breadcrumb-link {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .breadcrumb-link::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: white;
-            transition: width 0.2s;
-        }
-        .breadcrumb-link:hover::after {
-            width: 100%;
-        }
-
-        /* empty vault animated icon */
-        @keyframes softBounce {
-            0%,100%{ transform: translateY(0);}
-            50%{ transform: translateY(-12px);}
-        }
-        .empty-icon {
-            animation: softBounce 2s infinite ease-in-out;
-        }
-
-        /* Responsive grid: perfect for media files & folders */
-        .responsive-vault-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 28px;
-        }
-
-        /* for very small screens */
+        /* responsive */
         @media (max-width: 640px) {
-            .responsive-vault-grid {
-                grid-template-columns: 1fr;
-                gap: 20px;
-            }
-            .glass-card-login {
+            .login-card {
                 padding: 32px 24px !important;
-            }
-            .vault-header {
-                flex-direction: column;
-                align-items: flex-start !important;
-                gap: 16px;
-            }
-        }
-
-        /* tablet adjustment */
-        @media (min-width: 641px) and (max-width: 1024px) {
-            .responsive-vault-grid {
-                grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
             }
         }
     </style>
 </head>
 <body>
-<!-- 
-    EXTENDED TEMPLATE: FULLY COMPATIBLE WITH EXISTING FLASK BACKEND
-    All variables: logged_in, session.user_pin, breadcrumb, folder_id, items, url_for, etc.
-    This enhanced UI preserves every original variable & route: user_vault, logout, download_item, folder navigation.
-    Coach Odighiode owner branding integrated seamlessly.
--->
+
 {% if not logged_in %}
-<!-- LOGIN SECTION: Enhanced Glassmorphic PIN entry -->
-<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; background: radial-gradient(circle at 20% 30%, rgba(102,126,234,0.12), rgba(118,75,162,0.08)), #f0f4fe;">
-    <div class="glass-card-login" style="background: rgba(255,255,255,0.98); backdrop-filter: blur(4px); border-radius: 48px; padding: 48px; max-width: 500px; width: 100%; box-shadow: 0 35px 68px rgba(0,0,0,0.2), 0 0 0 1px rgba(255,255,255,0.5); transition: 0.2s;">
+<!-- 
+    ENHANCED LOGIN PAGE
+    Professional, clean, and fully compatible with existing Flask backend
+    Owner: Coach Odighiode
+-->
+<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);">
+    <div class="login-card" style="background: white; border-radius: 32px; padding: 48px; max-width: 480px; width: 100%; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
+        
+        <!-- Header Section -->
         <div style="text-align: center;">
-            <div style="width: 96px; height: 96px; background: linear-gradient(145deg, #5b6cff, #8b5cf6); border-radius: 32px; display: flex; align-items: center; justify-content: center; margin: 0 auto 28px; box-shadow: 0 20px 30px -12px rgba(91,108,255,0.4);">
-                <i class="fas fa-shield-haltered" style="font-size: 48px; color: white;"></i>
+            <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #4f46e5, #7c3aed); border-radius: 24px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.3);">
+                <i class="fas fa-shield-alt" style="font-size: 40px; color: white;"></i>
             </div>
-            <h1 style="font-size: 38px; font-weight: 800; background: linear-gradient(135deg, #1e293b, #4c1d95); background-clip: text; -webkit-background-clip: text; color: transparent;">Justice Vault</h1>
-            <p style="color: #475569; margin-top: 8px; font-weight: 500;">Secure digital fortress <i class="fas fa-lock" style="font-size: 12px;"></i></p>
-            <div style="margin: 16px 0 8px; font-size: 13px; color: #6c63ff; background: #ede9fe; display: inline-block; padding: 4px 14px; border-radius: 40px;">
-                <i class="fas fa-crown"></i> Coach Odighiode • Owner
+            <h1 style="font-size: 32px; font-weight: 700; color: #1e1b4b;">Justice Vault</h1>
+            <p style="color: #6b7280; margin-top: 8px; font-size: 15px;">Secure document and media storage system</p>
+            <div style="margin: 16px auto 8px; background: #f3f4f6; display: inline-block; padding: 6px 16px; border-radius: 40px;">
+                <i class="fas fa-user-check" style="font-size: 12px; color: #4f46e5;"></i>
+                <span style="font-size: 13px; color: #374151; margin-left: 6px;">Owner: Coach Odighiode</span>
             </div>
-            <p style="color: #64748b; margin-bottom: 32px; margin-top: 16px;">Enter your unique 8‑character PIN</p>
+            <p style="color: #6b7280; margin-top: 20px; margin-bottom: 32px; font-size: 14px;">Enter your unique 8-character PIN to access the vault</p>
         </div>
-        <form method="POST">
-            <div style="position: relative;">
-                <i class="fas fa-key" style="position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: #8b5cf6; font-size: 20px;"></i>
-                <input type="text" name="pin" placeholder="e.g., JV•1234$" required maxlength="8" style="width: 100%; padding: 18px 18px 18px 52px; border: 2px solid #e2e8f0; border-radius: 60px; font-size: 18px; font-family: 'JetBrains Mono', monospace; letter-spacing: 2px; background: white; transition: 0.2s; outline: none;" onfocus="this.style.borderColor='#8b5cf6'" onblur="this.style.borderColor='#e2e8f0'">
+
+        <!-- PIN Entry Form -->
+        <form method="POST" action="">
+            <div style="position: relative; margin-bottom: 24px;">
+                <i class="fas fa-key" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 18px;"></i>
+                <input 
+                    type="text" 
+                    name="pin" 
+                    placeholder="Enter 8-character PIN" 
+                    required 
+                    maxlength="8" 
+                    style="width: 100%; padding: 16px 16px 16px 48px; border: 2px solid #e5e7eb; border-radius: 16px; font-size: 16px; font-family: 'JetBrains Mono', monospace; letter-spacing: 1px; background: white; transition: all 0.2s;"
+                    onfocus="this.style.borderColor='#4f46e5'"
+                    onblur="this.style.borderColor='#e5e7eb'"
+                >
             </div>
-            <button type="submit" style="width: 100%; margin-top: 28px; padding: 16px; background: linear-gradient(105deg, #6366f1, #a855f7); color: white; border: none; border-radius: 60px; font-weight: 700; font-size: 18px; cursor: pointer; box-shadow: 0 8px 20px rgba(99,102,241,0.3); transition: all 0.2s;">🔓 Unlock Vault</button>
+
+            <button 
+                type="submit" 
+                style="width: 100%; padding: 16px; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: white; border: none; border-radius: 16px; font-weight: 600; font-size: 16px; cursor: pointer; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);"
+                onmouseover="this.style.opacity='0.9'"
+                onmouseout="this.style.opacity='1'"
+            >
+                <i class="fas fa-lock-open" style="margin-right: 8px;"></i>
+                Access Vault
+            </button>
         </form>
-        <div style="text-align: center; margin-top: 28px; font-size: 12px; color: #94a3b8;">
-            <i class="fas fa-fingerprint"></i> Biometric-ready secure enclave
+
+        <!-- Footer Note -->
+        <div style="text-align: center; margin-top: 32px; padding-top: 24px; border-top: 1px solid #f0f0f0;">
+            <p style="font-size: 12px; color: #9ca3af;">
+                <i class="fas fa-fingerprint" style="margin-right: 4px;"></i>
+                Secure encrypted access | Authorized personnel only
+            </p>
         </div>
     </div>
 </div>
+
 {% else %}
-<!-- AUTHENTICATED VAULT: FULLY ENHANCED MEDIA RESPONSIVE DESIGN -->
+<!-- 
+    AUTHENTICATED VAULT SECTION
+    Professional interface with media-responsive grid
+    Fully compatible with existing Flask backend variables and routes
+-->
 <div style="background: #f8fafc; min-height: 100vh;">
-    <!-- HERO HEADER with Coach Odighiode branding -->
-    <div style="background: linear-gradient(125deg, #0f172a 0%, #2d2a5e 50%, #4c1d95 100%); padding: 28px 24px; color: white; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);">
-        <div style="max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;" class="vault-header">
+    
+    <!-- Header Bar with Owner Info -->
+    <div style="background: linear-gradient(135deg, #1e1b4b, #312e81); padding: 24px 28px; color: white;">
+        <div style="max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
             <div>
                 <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                    <i class="fas fa-gavel" style="font-size: 32px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));"></i>
-                    <h1 style="font-size: 28px; font-weight: 700; letter-spacing: -0.3px;">⚖️ Your Secure Vault</h1>
+                    <i class="fas fa-gavel" style="font-size: 28px;"></i>
+                    <h1 style="font-size: 26px; font-weight: 700;">Justice Vault</h1>
                 </div>
-                <div style="display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap; align-items: baseline;">
-                    <p style="background: rgba(255,255,255,0.2); padding: 6px 14px; border-radius: 60px; font-family: monospace; font-size: 14px; backdrop-filter: blur(4px);">
-                        <i class="fas fa-id-card"></i> PIN: <strong>{{ session.user_pin }}</strong>
-                    </p>
-                    <p style="font-size: 13px; background: rgba(255,215,0,0.2); padding: 4px 12px; border-radius: 30px;">
-                        <i class="fas fa-crown"></i> Curated by Coach Odighiode
-                    </p>
+                <div style="display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap;">
+                    <span style="background: rgba(255,255,255,0.15); padding: 5px 14px; border-radius: 40px; font-family: monospace; font-size: 13px;">
+                        <i class="fas fa-id-card"></i> PIN: {{ session.user_pin }}
+                    </span>
+                    <span style="background: rgba(255,215,0,0.2); padding: 5px 14px; border-radius: 40px; font-size: 13px;">
+                        <i class="fas fa-user-tie"></i> Owner: Coach Odighiode
+                    </span>
                 </div>
             </div>
-            <a href="{{ url_for('logout') }}" style="background: rgba(255,255,255,0.2); backdrop-filter: blur(8px); padding: 12px 26px; border-radius: 60px; text-decoration: none; color: white; font-weight: 600; display: inline-flex; align-items: center; gap: 10px; border: 1px solid rgba(255,255,255,0.3); transition: 0.2s;">
-                <i class="fas fa-sign-out-alt"></i> Lock Vault
+            <a href="{{ url_for('logout') }}" style="background: rgba(255,255,255,0.15); padding: 10px 24px; border-radius: 40px; text-decoration: none; color: white; font-weight: 500; display: inline-flex; align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,0.2);">
+                <i class="fas fa-sign-out-alt"></i> Logout
             </a>
         </div>
-        <!-- DYNAMIC BREADCRUMB (enhanced visual) -->
-        <div style="max-width: 1400px; margin: 24px auto 0 auto; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 14px;">
-            <a href="{{ url_for('user_vault') }}" style="color: #e2e8f0; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;" class="breadcrumb-link"><i class="fas fa-home"></i> Vault Root</a>
-            {% for crumb in breadcrumb %}
-                <i class="fas fa-chevron-right" style="font-size: 12px; color: #cbd5e1;"></i>
-                <a href="{{ url_for('user_vault', folder=crumb.id) }}" style="color: white; text-decoration: none; font-weight: 500; background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 40px;" class="breadcrumb-link">{{ crumb.name }}</a>
-            {% endfor %}
+        
+        <!-- Breadcrumb Navigation -->
+        <div style="max-width: 1400px; margin: 20px auto 0;">
+            <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 14px;">
+                <a href="{{ url_for('user_vault') }}" style="color: #c7d2fe; text-decoration: none;">
+                    <i class="fas fa-home"></i> Vault
+                </a>
+                {% for crumb in breadcrumb %}
+                    <i class="fas fa-chevron-right" style="font-size: 11px; color: #a5b4fc;"></i>
+                    <a href="{{ url_for('user_vault', folder=crumb.id) }}" style="color: #c7d2fe; text-decoration: none; background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 30px;">
+                        {{ crumb.name }}
+                    </a>
+                {% endfor %}
+            </div>
         </div>
     </div>
 
-    <!-- MAIN VAULT CONTENT -->
-    <div style="max-width: 1400px; margin: 0 auto; padding: 40px 28px;">
-        <!-- Back navigation button (only if inside subfolder) -->
+    <!-- Main Vault Content -->
+    <div style="max-width: 1400px; margin: 0 auto; padding: 36px 28px;">
+        
+        <!-- Back Button for Subfolders -->
         {% if folder_id %}
-        <div style="margin-bottom: 32px;">
-            <a href="{{ url_for('user_vault') }}" style="display: inline-flex; align-items: center; gap: 10px; background: white; padding: 10px 24px; border-radius: 50px; text-decoration: none; color: #334155; font-weight: 600; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; transition: 0.2s;">
+        <div style="margin-bottom: 28px;">
+            <a href="{{ url_for('user_vault') }}" style="display: inline-flex; align-items: center; gap: 8px; background: white; padding: 10px 22px; border-radius: 40px; text-decoration: none; color: #1f2937; font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                 <i class="fas fa-arrow-left"></i> Back to Root
             </a>
         </div>
         {% endif %}
 
+        <!-- Items Grid -->
         {% if items %}
-        <!-- MEDIA-RESPONSIVE GRID: shows thumbnails, files, folders in modern card style -->
-        <div class="responsive-vault-grid">
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 28px;">
             {% for item in items %}
-            <div class="vault-item-card" style="background: white; border-radius: 28px; overflow: hidden; box-shadow: 0 10px 20px -5px rgba(0,0,0,0.08); transition: all 0.2s; border: 1px solid rgba(203,213,225,0.4);">
-                <!-- DYNAMIC MEDIA THUMBNAIL / ICON WITH FALLBACK -->
-                <div style="position: relative; background: #f1f5f9;">
+            <div class="vault-card" style="background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); border: 1px solid #eef2ff; transition: all 0.2s;">
+                
+                <!-- Thumbnail / Icon Area -->
+                <div style="background: #f1f5f9; min-height: 200px; display: flex; align-items: center; justify-content: center; position: relative;">
                     {% if item.thumbnail_url %}
-                        <img src="{{ item.thumbnail_url }}" class="media-thumb" style="width: 100%; height: 210px; object-fit: cover; display: block;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                        <div style="display: none; background: linear-gradient(145deg, #6366f1, #a855f7); height: 210px; align-items: center; justify-content: center;"><i class="fas {{ item.icon if item.icon else 'fa-image' }}" style="font-size: 70px; color: white; filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.2));"></i></div>
+                        <img src="{{ item.thumbnail_url }}" style="width: 100%; height: 200px; object-fit: cover;" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'background: linear-gradient(135deg, #6366f1, #a855f7); height: 200px; display: flex; align-items: center; justify-content: center;\'><i class=\'fas {{ item.icon if item.icon else "fa-file" }}\' style=\'font-size: 70px; color: white;\'></i></div>';">
                     {% elif item.type == 'folder' %}
-                        <div style="background: linear-gradient(135deg, #fbbf24, #f97316); height: 210px; display: flex; align-items: center; justify-content: center; transition: 0.2s;">
-                            <i class="fas fa-folder-open" style="font-size: 80px; color: white; text-shadow: 0 4px 8px rgba(0,0,0,0.1);"></i>
+                        <div style="background: linear-gradient(135deg, #f59e0b, #d97706); height: 200px; width: 100%; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-folder-open" style="font-size: 75px; color: white;"></i>
                         </div>
                     {% else %}
-                        <div style="background: linear-gradient(145deg, #3b82f6, #8b5cf6); height: 210px; display: flex; align-items: center; justify-content: center;">
-                            <i class="fas {{ item.icon if item.icon else 'fa-file-alt' }}" style="font-size: 75px; color: white;"></i>
+                        <div style="background: linear-gradient(135deg, #6366f1, #8b5cf6); height: 200px; width: 100%; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas {{ item.icon if item.icon else 'fa-file-alt' }}" style="font-size: 70px; color: white;"></i>
                         </div>
                     {% endif %}
-                    <!-- optional file type badge -->
-                    {% if item.type == 'file' and item.mime_type and 'video' in item.mime_type %}
-                        <div style="position: absolute; bottom: 12px; right: 12px; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); border-radius: 30px; padding: 4px 10px; font-size: 11px; color: white;"><i class="fas fa-video"></i> MEDIA</div>
-                    {% elif item.type == 'file' and item.mime_type and 'image' in item.mime_type %}
-                        <div style="position: absolute; bottom: 12px; right: 12px; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); border-radius: 30px; padding: 4px 10px; font-size: 11px; color: white;"><i class="fas fa-camera"></i> PHOTO</div>
-                    {% endif %}
+                    
+                    <!-- Type Badge -->
+                    <div style="position: absolute; bottom: 12px; right: 12px; background: rgba(0,0,0,0.6); border-radius: 30px; padding: 4px 12px; font-size: 11px; color: white; font-weight: 500;">
+                        <i class="fas {{ 'fa-folder' if item.type == 'folder' else 'fa-file' }}"></i> {{ item.type|upper }}
+                    </div>
                 </div>
 
-                <div style="padding: 20px 20px 24px;">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
-                        <i class="fas {{ 'fa-folder' if item.type == 'folder' else 'fa-paperclip' }}" style="color: #6b7280;"></i>
-                        <h3 style="font-weight: 700; font-size: 18px; word-break: break-word; color: #0f172a;">{{ item.name }}</h3>
-                    </div>
-                    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px;">
-                        <span style="background: #f1f5f9; padding: 4px 12px; border-radius: 50px; font-size: 12px; font-weight: 500;"><i class="fas fa-tag"></i> {{ item.type|upper }}</span>
-                        {% if item.size %}
-                        <span style="background: #f1f5f9; padding: 4px 12px; border-radius: 50px; font-size: 12px;"><i class="fas fa-database"></i> {{ (item.size / 1024 / 1024)|round(1) }} MB</span>
-                        {% endif %}
-                    </div>
+                <!-- Item Details -->
+                <div style="padding: 18px;">
+                    <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 8px; color: #1f2937; word-break: break-word;">{{ item.name }}</h3>
                     
-                    <!-- ACTION BUTTONS: fully compatible with backend routes -->
+                    {% if item.size %}
+                    <p style="color: #6b7280; font-size: 13px; margin-bottom: 16px;">
+                        <i class="fas fa-hdd"></i> Size: {{ (item.size / 1024 / 1024)|round(1) }} MB
+                    </p>
+                    {% endif %}
+
+                    <!-- Action Button -->
                     {% if item.type == 'folder' %}
-                        <a href="{{ url_for('user_vault', folder=item.id) }}" style="display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 12px; background: #f1f5f9; border-radius: 60px; text-decoration: none; color: #334155; font-weight: 600; transition: 0.2s;">
-                            <i class="fas fa-folder-open"></i> Explore Folder
+                        <a href="{{ url_for('user_vault', folder=item.id) }}" style="display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px; background: #f3f4f6; border-radius: 40px; text-decoration: none; color: #374151; font-weight: 500; transition: 0.2s;">
+                            <i class="fas fa-folder-open"></i> Open Folder
                         </a>
                     {% elif item.can_access %}
-                        <a href="{{ url_for('download_item', item_id=item.id) }}" style="display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; padding: 12px; background: linear-gradient(95deg, #6366f1, #a855f7); border-radius: 60px; text-decoration: none; color: white; font-weight: 600; box-shadow: 0 4px 10px rgba(99,102,241,0.3);">
-                            <i class="fas fa-download"></i> Download Now
+                        <a href="{{ url_for('download_item', item_id=item.id) }}" style="display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px; background: linear-gradient(135deg, #4f46e5, #7c3aed); border-radius: 40px; text-decoration: none; color: white; font-weight: 500; box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);">
+                            <i class="fas fa-download"></i> Download
                         </a>
                     {% else %}
-                        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px; background: #fee2e2; border-radius: 60px; color: #b91c1c; font-weight: 500;">
-                            <i class="fas fa-ban"></i> Access Denied
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px; background: #fee2e2; border-radius: 40px; color: #991b1b; font-weight: 500;">
+                            <i class="fas fa-lock"></i> Access Denied
                         </div>
                     {% endif %}
                 </div>
@@ -258,41 +244,50 @@
             {% endfor %}
         </div>
         {% else %}
-        <!-- ENHANCED EMPTY VAULT STATE with media callout -->
-        <div style="text-align: center; padding: 70px 20px; background: white; border-radius: 48px; margin-top: 20px; box-shadow: 0 10px 25px -12px rgba(0,0,0,0.05);">
-            <div class="empty-icon">
-                <i class="fas fa-cloud-upload-alt" style="font-size: 80px; color: #cbd5e1;"></i>
-            </div>
-            <h3 style="font-size: 28px; font-weight: 600; margin: 24px 0 12px; color: #1e293b;">Silent Vault</h3>
-            <p style="color: #475569; max-width: 400px; margin: 0 auto;">No items in this directory. Upload media, documents or create folders via admin panel.</p>
-            <div style="margin-top: 32px;">
-                <i class="fas fa-shield-alt" style="color: #8b5cf6;"></i> <span style="color: #334155;">Protected by Coach Odighiode's integrity layer</span>
-            </div>
+        <!-- Empty Vault State -->
+        <div style="text-align: center; padding: 70px 20px; background: white; border-radius: 32px; margin-top: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <i class="fas fa-folder-open" style="font-size: 70px; color: #cbd5e1;"></i>
+            <h3 style="font-size: 24px; font-weight: 600; margin: 24px 0 12px; color: #374151;">Empty Vault</h3>
+            <p style="color: #6b7280;">No files or folders found in this location.</p>
+            <p style="color: #9ca3af; font-size: 13px; margin-top: 16px;">Upload content through the admin panel to get started.</p>
         </div>
         {% endif %}
-        
-        <!-- subtle footer watermark -->
-        <div style="margin-top: 56px; text-align: center; border-top: 1px solid #e2e8f0; padding: 24px 20px 16px; font-size: 13px; color: #64748b;">
-            <i class="fas fa-lock"></i> Justice Vault · secured enclave · curated by <strong style="color:#4c1d95;">Coach Odighiode</strong>  |  <i class="fas fa-mobile-alt"></i> Fully responsive media grid
+
+        <!-- Footer -->
+        <div style="margin-top: 48px; text-align: center; border-top: 1px solid #e2e8f0; padding: 24px 20px 16px; font-size: 12px; color: #94a3b8;">
+            <i class="fas fa-shield-alt"></i> Justice Vault - Secure Digital Archive
+            <span style="margin: 0 8px">|</span>
+            <i class="fas fa-user"></i> Managed by Coach Odighiode
+            <span style="margin: 0 8px">|</span>
+            <i class="fas fa-mobile-alt"></i> Responsive Media Grid
         </div>
     </div>
 </div>
 {% endif %}
 
-<!-- small script to improve thumbnail error handling and interactive console greeting (optional) -->
+<!-- Small script for graceful thumbnail error handling -->
 <script>
     (function() {
-        // Just for graceful thumbnail fallback & console greeting (no backend interference)
-        console.log("⚖️ Justice Vault — Enhanced UI active | Owner: Coach Odighiode | Media responsive ready");
-        // optional: add additional hover effect for cards (already via CSS)
-        // Ensure any dynamic items are fully compatible; all template variables remain untouched.
-        // This script does not override any Flask logic, just frontend resilience.
-        document.querySelectorAll('img[onerror]').forEach(img => {
-            if (!img.complete || img.naturalWidth === 0) {
-                img.dispatchEvent(new Event('error'));
-            }
+        // Handle image loading errors gracefully
+        document.querySelectorAll('img').forEach(function(img) {
+            img.addEventListener('error', function() {
+                this.style.display = 'none';
+                var parent = this.parentElement;
+                if (parent && !parent.querySelector('.fallback-icon')) {
+                    var fallback = document.createElement('div');
+                    fallback.className = 'fallback-icon';
+                    fallback.style.background = 'linear-gradient(135deg, #6366f1, #a855f7)';
+                    fallback.style.height = '200px';
+                    fallback.style.display = 'flex';
+                    fallback.style.alignItems = 'center';
+                    fallback.style.justifyContent = 'center';
+                    fallback.innerHTML = '<i class="fas fa-file-alt" style="font-size: 70px; color: white;"></i>';
+                    parent.appendChild(fallback);
+                }
+            });
         });
     })();
 </script>
+
 </body>
 </html>
