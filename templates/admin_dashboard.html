@@ -7,7 +7,7 @@
         gap: 16px;
         max-height: 500px;
         overflow-y: auto;
-        padding: 4px;
+        padding: 8px;
     }
     .permission-item {
         border-radius: 12px;
@@ -17,8 +17,8 @@
         border: 2px solid transparent;
     }
     .permission-item:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.15);
     }
     .permission-item.accessible {
         background: linear-gradient(135deg, #10b981, #059669);
@@ -30,206 +30,95 @@
     }
     .permission-item.selected {
         border-color: #ffd700;
-        box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.3);
-    }
-    .permission-item .item-icon {
-        font-size: 32px;
-        margin-bottom: 12px;
-    }
-    .permission-item .item-name {
-        font-weight: 600;
-        margin-bottom: 8px;
-        word-break: break-word;
-    }
-    .permission-item .item-type {
-        font-size: 12px;
-        opacity: 0.8;
-    }
-    .action-buttons {
-        display: flex;
-        gap: 12px;
-        margin-top: 20px;
-        justify-content: center;
-    }
-    .action-btn {
-        padding: 12px 24px;
-        border: none;
-        border-radius: 10px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-    .action-btn.grant {
-        background: #10b981;
-        color: white;
-    }
-    .action-btn.grant:hover {
-        background: #059669;
-        transform: scale(1.02);
-    }
-    .action-btn.revoke {
-        background: #ef4444;
-        color: white;
-    }
-    .action-btn.revoke:hover {
-        background: #dc2626;
-        transform: scale(1.02);
-    }
-    .action-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-        transform: none;
-    }
-    .selected-info {
-        text-align: center;
-        padding: 12px;
-        background: #f7fafc;
-        border-radius: 10px;
-        margin-bottom: 20px;
-    }
-    .filter-buttons {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 20px;
-        flex-wrap: wrap;
-    }
-    .filter-btn {
-        padding: 8px 16px;
-        border: 2px solid #e2e8f0;
-        background: white;
-        border-radius: 8px;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-    .filter-btn.active {
-        background: #667eea;
-        color: white;
-        border-color: #667eea;
-    }
-    .search-box {
-        margin-bottom: 20px;
-    }
-    .search-box input {
-        width: 100%;
-        padding: 12px;
-        border: 2px solid #e2e8f0;
-        border-radius: 10px;
-        font-size: 14px;
-    }
-    .batch-actions {
-        display: flex;
-        gap: 12px;
-        justify-content: center;
-        margin-top: 20px;
-        padding-top: 20px;
-        border-top: 1px solid #e2e8f0;
-    }
-    .upload-area {
-        border: 2px dashed #cbd5e0;
-        border-radius: 16px;
-        padding: 40px;
-        text-align: center;
-        transition: all 0.2s;
-        cursor: pointer;
-    }
-    .upload-area.drag-over {
-        border-color: #667eea;
-        background: #f7fafc;
-    }
-    .folder-breadcrumb {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-        margin-bottom: 20px;
-        padding: 12px;
-        background: #f7fafc;
-        border-radius: 10px;
-    }
-    .breadcrumb-item {
-        cursor: pointer;
-        color: #667eea;
-        text-decoration: none;
-    }
-    .breadcrumb-item:hover {
-        text-decoration: underline;
+        box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.4);
     }
     .modal {
         display: none;
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0,0,0,0.5);
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0,0,0,0.7);
         align-items: center;
         justify-content: center;
-        z-index: 1000;
+        z-index: 2000;
     }
     .modal-content {
         background: white;
-        border-radius: 24px;
-        padding: 32px;
-        max-width: 500px;
+        border-radius: 16px;
+        padding: 30px;
         width: 90%;
-        max-height: 90%;
+        max-width: 520px;
+        max-height: 90vh;
         overflow-y: auto;
+    }
+    .upload-area {
+        border: 2px dashed #667eea;
+        border-radius: 12px;
+        padding: 50px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .upload-area.drag-over {
+        background: #f0f4ff;
+        border-color: #2563eb;
+    }
+    .action-btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
     }
 </style>
 
 <div style="background: #f7fafc; min-height: 100vh;">
-    <div style="background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px 24px;">
+    <!-- Header -->
+    <div style="background: white; padding: 20px 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
         <div style="max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <h1 style="font-size: 24px; font-weight: 700;"><i class="fas fa-crown" style="color: #667eea;"></i> Admin Dashboard</h1>
-                <p style="color: #718096;">Manage your secure vault</p>
-            </div>
-            <a href="{{ url_for('admin_logout') }}" style="padding: 10px 20px; background: #f56565; color: white; border-radius: 10px; text-decoration: none;">Logout</a>
+            <h1 style="margin: 0;"><i class="fas fa-crown" style="color: #667eea;"></i> Justice Vault - Admin Dashboard</h1>
+            <a href="{{ url_for('admin_logout') }}" style="color: #ef4444; text-decoration: none; font-weight: 600;">Logout</a>
         </div>
     </div>
-    
+
     <div style="max-width: 1400px; margin: 0 auto; padding: 24px;">
+
         <!-- Stats -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 32px;">
-            <div style="background: white; border-radius: 16px; padding: 20px;">
-                <p style="color: #718096;">Total Users</p>
-                <p style="font-size: 32px; font-weight: 700;">{{ total_users }}</p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px;">
+            <div style="background: white; padding: 20px; border-radius: 12px; text-align: center;">
+                <h3>Total Users</h3>
+                <h2 style="margin: 10px 0; color: #667eea;">{{ total_users }}</h2>
             </div>
-            <div style="background: white; border-radius: 16px; padding: 20px;">
-                <p style="color: #718096;">Total Files</p>
-                <p style="font-size: 32px; font-weight: 700;">{{ total_files }}</p>
+            <div style="background: white; padding: 20px; border-radius: 12px; text-align: center;">
+                <h3>Total Files</h3>
+                <h2 style="margin: 10px 0; color: #10b981;">{{ total_files }}</h2>
             </div>
-            <div style="background: white; border-radius: 16px; padding: 20px;">
-                <p style="color: #718096;">Total Folders</p>
-                <p style="font-size: 32px; font-weight: 700;">{{ total_folders }}</p>
+            <div style="background: white; padding: 20px; border-radius: 12px; text-align: center;">
+                <h3>Total Folders</h3>
+                <h2 style="margin: 10px 0; color: #f59e0b;">{{ total_folders }}</h2>
             </div>
-            <div style="background: white; border-radius: 16px; padding: 20px;">
-                <p style="color: #718096;">Downloads</p>
-                <p style="font-size: 32px; font-weight: 700;">{{ total_downloads }}</p>
+            <div style="background: white; padding: 20px; border-radius: 12px; text-align: center;">
+                <h3>Downloads</h3>
+                <h2 style="margin: 10px 0; color: #8b5cf6;">{{ total_downloads }}</h2>
             </div>
         </div>
-        
+
         <!-- Quick Actions -->
-        <div style="background: white; border-radius: 16px; padding: 24px; margin-bottom: 32px;">
-            <h2 style="margin-bottom: 20px;"><i class="fas fa-plus-circle"></i> Quick Actions</h2>
-            <form method="POST" action="{{ url_for('create_pin') }}" style="display: inline-block;">
-                <button type="submit" style="padding: 12px 24px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 10px; cursor: pointer;">
-                    <i class="fas fa-key"></i> Generate New PIN
-                </button>
-            </form>
-            <button onclick="openUploadModal()" style="padding: 12px 24px; background: #48bb78; color: white; border: none; border-radius: 10px; cursor: pointer; margin-left: 10px;">
+        <div style="background: white; padding: 24px; border-radius: 12px; margin-bottom: 30px;">
+            <h2>Quick Actions</h2>
+            <button onclick="openUploadModal()" class="action-btn" style="background: #10b981; color: white; margin-right: 12px;">
                 <i class="fas fa-upload"></i> Upload File
             </button>
-            <button onclick="openFolderModal()" style="padding: 12px 24px; background: #4299e1; color: white; border: none; border-radius: 10px; cursor: pointer; margin-left: 10px;">
+            <button onclick="openFolderModal()" class="action-btn" style="background: #3b82f6; color: white;">
                 <i class="fas fa-folder-plus"></i> Create Folder
             </button>
         </div>
-        
+
         <!-- Users Table -->
-        <div style="background: white; border-radius: 16px; overflow-x: auto; margin-bottom: 32px;">
-            <h2 style="padding: 20px;"><i class="fas fa-users"></i> Users & PINs</h2>
+        <div style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 30px; overflow-x: auto;">
+            <h2>Users & PINs</h2>
             <table style="width: 100%; border-collapse: collapse;">
-                <thead style="background: #f7fafc;">
+                <thead style="background: #f8fafc;">
                     <tr>
                         <th style="padding: 12px; text-align: left;">PIN</th>
                         <th>Created</th>
@@ -244,205 +133,139 @@
                         <td style="padding: 12px;"><code>{{ user.pin }}</code></td>
                         <td style="padding: 12px;">{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else 'N/A' }}</td>
                         <td style="padding: 12px;">{{ user.device_count }}</td>
-                        <td style="padding: 12px;">{% if user.is_active %}<span style="background: #c6f6d5; padding: 4px 12px; border-radius: 20px;">Active</span>{% else %}<span style="background: #fed7d7; padding: 4px 12px; border-radius: 20px;">Revoked</span>{% endif %}</td>
                         <td style="padding: 12px;">
-                            <button onclick="selectUserForPermissions({{ user.id }}, '{{ user.pin }}')" style="background: #667eea; color: white; padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer; margin: 2px;">
-                                <i class="fas fa-shield-alt"></i> Manage Access
-                            </button>
-                            <a href="{{ url_for('user_devices', user_id=user.id) }}" style="background: #4299e1; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; display: inline-block; margin: 2px;">
-                                <i class="fas fa-desktop"></i> Devices
-                            </a>
                             {% if user.is_active %}
-                                <a href="{{ url_for('revoke_pin', user_id=user.id) }}" onclick="return confirm('Revoke PIN {{ user.pin }}?')" style="background: #ed8936; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; display: inline-block; margin: 2px;">
-                                    <i class="fas fa-ban"></i> Revoke
-                                </a>
+                                <span style="background: #d1fae5; color: #10b981; padding: 4px 12px; border-radius: 20px;">Active</span>
                             {% else %}
-                                <a href="{{ url_for('activate_pin', user_id=user.id) }}" style="background: #48bb78; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; display: inline-block; margin: 2px;">
-                                    <i class="fas fa-check"></i> Activate
-                                </a>
+                                <span style="background: #fee2e2; color: #ef4444; padding: 4px 12px; border-radius: 20px;">Revoked</span>
                             {% endif %}
-                            <a href="{{ url_for('delete_pin', user_id=user.id) }}" onclick="return confirm('PERMANENTLY DELETE user {{ user.pin }}? Cannot undo!')" style="background: #f56565; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; display: inline-block; margin: 2px;">
-                                <i class="fas fa-trash"></i> Delete
-                            </a>
+                        </td>
+                        <td style="padding: 12px;">
+                            <button onclick="selectUserForPermissions({{ user.id }}, '{{ user.pin }}')" style="background:#667eea;color:white;padding:6px 12px;border:none;border-radius:6px;cursor:pointer;margin:2px;">
+                                Manage Access
+                            </button>
+                            <a href="{{ url_for('user_devices', user_id=user.id) }}" style="background:#3b82f6;color:white;padding:6px 12px;border-radius:6px;text-decoration:none;margin:2px;">Devices</a>
+                            <a href="{{ url_for('delete_pin', user_id=user.id) }}" onclick="return confirm('Delete this PIN permanently?')" style="background:#ef4444;color:white;padding:6px 12px;border-radius:6px;text-decoration:none;margin:2px;">Delete</a>
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-        
-        <!-- Permissions Management Section -->
-        <div id="permissionsSection" style="background: white; border-radius: 16px; padding: 24px; display: none;">
-            <h2 style="margin-bottom: 20px;">
-                <i class="fas fa-shield-alt"></i> 
-                Manage Access Permissions for: 
-                <span id="selectedUserName" style="color: #667eea;"></span>
-                <button onclick="closePermissions()" style="float: right; background: #e2e8f0; border: none; padding: 5px 15px; border-radius: 8px; cursor: pointer;">✕ Close</button>
-            </h2>
-            
-            <div class="selected-info" id="selectedInfo">
-                Click on any item to select it. <strong>Green = Accessible</strong> | <strong>Red = Restricted</strong>
-            </div>
-            
-            <div class="filter-buttons">
-                <button class="filter-btn active" onclick="filterItems('all', this)">All Items</button>
-                <button class="filter-btn" onclick="filterItems('accessible', this)">Accessible (Green)</button>
-                <button class="filter-btn" onclick="filterItems('restricted', this)">Restricted (Red)</button>
-            </div>
-            
-            <div class="search-box">
-                <input type="text" id="searchInput" placeholder="Search items..." onkeyup="searchItems()">
-            </div>
-            
-            <div id="permissionGrid" class="permission-grid">
-                <!-- Items will be loaded here dynamically -->
-            </div>
-            
-            <div class="batch-actions">
-                <button class="action-btn grant" onclick="batchUpdate('grant')">
-                    <i class="fas fa-check-circle"></i> Grant Access to Selected
-                </button>
-                <button class="action-btn revoke" onclick="batchUpdate('revoke')">
-                    <i class="fas fa-ban"></i> Restrict Access to Selected
-                </button>
-            </div>
-            
-            <form id="permissionForm" method="POST" action="{{ url_for('update_permissions') }}">
-                <input type="hidden" name="user_id" id="permissionUserId">
-                <input type="hidden" name="restricted_items" id="restrictedItemsInput">
-                <button type="submit" style="display: none;" id="submitPermissions">Save</button>
-            </form>
-        </div>
-        
+
         <!-- Items Table -->
-        <div style="background: white; border-radius: 16px; overflow-x: auto; margin-bottom: 32px;">
-            <h2 style="padding: 20px;"><i class="fas fa-folder-open"></i> Vault Items</h2>
-            <div class="folder-breadcrumb" id="adminBreadcrumb">
-                <span class="breadcrumb-item" onclick="navigateAdminFolder(null)">📁 Root</span>
-            </div>
+        <div style="background: white; border-radius: 12px; padding: 20px; overflow-x: auto;">
+            <h2>Vault Items</h2>
             <div id="adminItemsContainer">
-                <!-- Items will be loaded dynamically -->
+                <!-- Populated by JavaScript -->
             </div>
         </div>
+
     </div>
 </div>
 
-<!-- Upload Modal -->
+<!-- ====================== UPLOAD MODAL ====================== -->
 <div id="uploadModal" class="modal">
     <div class="modal-content">
-        <h3 style="margin-bottom: 20px;"><i class="fas fa-upload"></i> Upload File</h3>
-        <form method="POST" action="{{ url_for('upload_item') }}" enctype="multipart/form-data" id="uploadForm">
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Name:</label>
-                <input type="text" name="name" id="uploadName" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            </div>
+        <h3><i class="fas fa-upload"></i> Upload File</h3>
+        <form method="POST" action="{{ url_for('upload_item') }}" enctype="multipart/form-data">
             <input type="hidden" name="type" value="file">
-            <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
-                <i class="fas fa-cloud-upload-alt" style="font-size: 48px; color: #667eea;"></i>
-                <p>Click or drag file here</p>
-                <p style="font-size: 12px; color: #718096;">Max 500MB</p>
-                <input type="file" name="file" id="fileInput" style="display: none;" onchange="handleFileSelect(this)">
+            
+            <label>Name:</label>
+            <input type="text" name="name" id="uploadName" required style="width:100%; padding:10px; margin:8px 0; border-radius:6px; border:1px solid #ccc;">
+
+            <div class="upload-area" id="dropZone">
+                <i class="fas fa-cloud-upload-alt" style="font-size:50px; color:#667eea;"></i>
+                <p>Click or drag & drop file here</p>
+                <input type="file" name="file" id="fileInput" style="display:none;" onchange="handleFileSelect(this)">
             </div>
-            <div id="selectedFile" style="display: none; background: #f7fafc; padding: 10px; border-radius: 6px; margin-bottom: 15px;">
-                <i class="fas fa-file"></i> <span id="fileName"></span>
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Folder Icon (optional):</label>
-                <input type="file" name="picture" accept="image/*" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            </div>
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Parent Folder:</label>
-                <select name="parent_id" id="uploadParentId" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                    <option value="">Root Directory</option>
-                    {% for folder in folders %}
-                    <option value="{{ folder.id }}">{{ folder.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <button type="submit" style="width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;">
-                <i class="fas fa-upload"></i> Upload
+
+            <label style="margin-top:15px;">Folder Icon (optional):</label>
+            <input type="file" name="picture" accept="image/*" style="width:100%; padding:8px;">
+
+            <label style="margin-top:15px;">Parent Folder:</label>
+            <select name="parent_id" style="width:100%; padding:10px; border-radius:6px;">
+                <option value="">Root Directory</option>
+                {% for folder in folders %}
+                <option value="{{ folder.id }}">{{ folder.name }}</option>
+                {% endfor %}
+            </select>
+
+            <button type="submit" style="width:100%; margin-top:20px; padding:14px; background:#10b981; color:white; border:none; border-radius:8px; font-size:16px;">
+                Upload File
             </button>
         </form>
-        <button onclick="closeUploadModal()" style="margin-top: 10px; width: 100%; padding: 10px; background: #ccc; border: none; border-radius: 6px; cursor: pointer;">Cancel</button>
+        <button onclick="closeUploadModal()" style="width:100%; margin-top:10px; padding:12px;">Cancel</button>
     </div>
 </div>
 
-<!-- Create Folder Modal -->
+<!-- ====================== CREATE FOLDER MODAL ====================== -->
 <div id="createFolderModal" class="modal">
     <div class="modal-content">
-        <h3 style="margin-bottom: 20px;"><i class="fas fa-folder-plus"></i> Create New Folder</h3>
+        <h3><i class="fas fa-folder-plus"></i> Create New Folder</h3>
         <form method="POST" action="{{ url_for('upload_item') }}" enctype="multipart/form-data">
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Folder Name:</label>
-                <input type="text" name="name" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            </div>
             <input type="hidden" name="type" value="folder">
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Folder Icon (optional):</label>
-                <input type="file" name="picture" accept="image/*" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            </div>
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Parent Folder:</label>
-                <select name="parent_id" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                    <option value="">Root Directory</option>
-                    {% for folder in folders %}
-                    <option value="{{ folder.id }}">{{ folder.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <button type="submit" style="width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;">
-                <i class="fas fa-folder-plus"></i> Create Folder
+
+            <label>Folder Name:</label>
+            <input type="text" name="name" required style="width:100%; padding:10px; margin:8px 0; border-radius:6px; border:1px solid #ccc;">
+
+            <label style="margin-top:15px;">Folder Icon (optional):</label>
+            <input type="file" name="picture" accept="image/*" style="width:100%; padding:8px;">
+
+            <label style="margin-top:15px;">Parent Folder:</label>
+            <select name="parent_id" style="width:100%; padding:10px; border-radius:6px;">
+                <option value="">Root Directory</option>
+                {% for folder in folders %}
+                <option value="{{ folder.id }}">{{ folder.name }}</option>
+                {% endfor %}
+            </select>
+
+            <button type="submit" style="width:100%; margin-top:20px; padding:14px; background:#3b82f6; color:white; border:none; border-radius:8px; font-size:16px;">
+                Create Folder
             </button>
         </form>
-        <button onclick="closeFolderModal()" style="margin-top: 10px; width: 100%; padding: 10px; background: #ccc; border: none; border-radius: 6px; cursor: pointer;">Cancel</button>
+        <button onclick="closeFolderModal()" style="width:100%; margin-top:10px; padding:12px;">Cancel</button>
     </div>
 </div>
 
 <script>
-    let allItems = {{ items | tojson | safe }};
-    let currentRestricted = [];
-    let currentUserId = null;
-    let currentFilter = 'all';
-    let currentSearch = '';
-    let selectedItems = new Set();
-    let currentAdminFolder = null;
-    let allFolders = {{ folders | tojson | safe }};
-
+    // Modal Functions
     function openUploadModal() {
         document.getElementById('uploadModal').style.display = 'flex';
-        document.getElementById('uploadName').value = '';
-        document.getElementById('selectedFile').style.display = 'none';
-        document.getElementById('fileInput').value = '';
     }
-
     function closeUploadModal() {
         document.getElementById('uploadModal').style.display = 'none';
     }
-
     function openFolderModal() {
         document.getElementById('createFolderModal').style.display = 'flex';
     }
-
     function closeFolderModal() {
         document.getElementById('createFolderModal').style.display = 'none';
     }
 
+    // Click outside to close
+    window.onclick = function(event) {
+        if (event.target.id === 'uploadModal') closeUploadModal();
+        if (event.target.id === 'createFolderModal') closeFolderModal();
+    };
+
+    // Drag and Drop + File Select
     const dropZone = document.getElementById('dropZone');
     if (dropZone) {
+        dropZone.addEventListener('click', () => document.getElementById('fileInput').click());
+        
         dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropZone.classList.add('drag-over');
         });
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('drag-over');
-        });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
         dropZone.addEventListener('drop', (e) => {
             e.preventDefault();
             dropZone.classList.remove('drag-over');
             const file = e.dataTransfer.files[0];
             if (file) {
                 document.getElementById('fileInput').files = e.dataTransfer.files;
-                handleFileSelect({ files: e.dataTransfer.files });
+                document.getElementById('uploadName').value = file.name.replace(/\.[^/.]+$/, "");
             }
         });
     }
@@ -450,225 +273,11 @@
     function handleFileSelect(input) {
         const file = input.files[0];
         if (file) {
-            document.getElementById('selectedFile').style.display = 'block';
-            document.getElementById('fileName').textContent = file.name;
-            document.getElementById('uploadName').value = file.name.replace(/\.[^/.]+$/, '');
-            dropZone.style.opacity = '0.5';
+            document.getElementById('uploadName').value = file.name.replace(/\.[^/.]+$/, "");
         }
     }
 
-    function loadAdminItems(parentId) {
-        const container = document.getElementById('adminItemsContainer');
-        const itemsToShow = parentId ? allItems.filter(i => i.parent_id === parentId) : allItems.filter(i => !i.parent_id);
-        
-        if (itemsToShow.length === 0) {
-            container.innerHTML = '<div style="text-align: center; padding: 60px;"><i class="fas fa-folder-open" style="font-size: 48px; color: #cbd5e0;"></i><p style="margin-top: 20px;">No items in this folder</p></div>';
-            return;
-        }
-        
-        let html = '<table style="width: 100%; border-collapse: collapse;">';
-        html += '<thead style="background: #f7fafc;"><tr><th style="padding: 12px; text-align: left;">Name</th><th>Type</th><th>Size</th><th>Created</th><th>Actions</th></tr></thead><tbody>';
-        
-        itemsToShow.forEach(item => {
-            html += `<tr style="border-bottom: 1px solid #e2e8f0;">
-                <td style="padding: 12px;">
-                    <i class="fas ${item.type === 'folder' ? 'fa-folder' : 'fa-file'}"></i> 
-                    ${escapeHtml(item.name)}
-                </td>
-                <td style="padding: 12px;">${item.type.toUpperCase()}</td>
-                <td style="padding: 12px;">${item.size ? (item.size / 1024 / 1024).toFixed(1) + ' MB' : '-'}</td>
-                <td style="padding: 12px;">${item.created_at || 'N/A'}</td>
-                <td style="padding: 12px;">
-                    \( {item.type === 'folder' ? `<button onclick="navigateAdminFolder( \){item.id})" style="background: #4299e1; color: white; padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer; margin-right: 5px;"><i class="fas fa-folder-open"></i> Open</button>` : ''}
-                    <a href="/admin/delete_item/${item.id}" onclick="return confirm('PERMANENTLY DELETE ${escapeHtml(item.name)}?')" style="background: #f56565; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; display: inline-block;"><i class="fas fa-trash"></i> Delete</a>
-                </td>
-            </tr>`;
-        });
-        
-        html += '</tbody></table>';
-        container.innerHTML = html;
-    }
-
-    function navigateAdminFolder(folderId) {
-        currentAdminFolder = folderId;
-        loadAdminItems(folderId);
-        
-        const breadcrumb = document.getElementById('adminBreadcrumb');
-        let crumbs = [];
-        let tempId = folderId;
-        while (tempId) {
-            const folder = allItems.find(i => i.id === tempId && i.type === 'folder');
-            if (folder) {
-                crumbs.unshift({ id: folder.id, name: folder.name });
-                tempId = folder.parent_id;
-            } else break;
-        }
-        
-        let html = '<span class="breadcrumb-item" onclick="navigateAdminFolder(null)">📁 Root</span>';
-        crumbs.forEach(crumb => {
-            html += ` <i class="fas fa-chevron-right"></i> <span class="breadcrumb-item" onclick="navigateAdminFolder(${crumb.id})">📁 ${escapeHtml(crumb.name)}</span>`;
-        });
-        breadcrumb.innerHTML = html;
-    }
-
-    function selectUserForPermissions(userId, userName) {
-        currentUserId = userId;
-        document.getElementById('selectedUserName').textContent = userName;
-        document.getElementById('permissionsSection').style.display = 'block';
-        document.getElementById('permissionUserId').value = userId;
-        selectedItems.clear();
-        
-        fetch(`/admin/get_permissions/${userId}`)
-            .then(response => response.json())
-            .then(data => {
-                currentRestricted = data.restricted || [];
-                renderPermissionGrid();
-            })
-            .catch(error => {
-                console.error('Error fetching permissions:', error);
-                currentRestricted = [];
-                renderPermissionGrid();
-            });
-        
-        document.getElementById('permissionsSection').scrollIntoView({ behavior: 'smooth' });
-    }
-
-    function renderPermissionGrid() {
-        const grid = document.getElementById('permissionGrid');
-        let filteredItems = [...allItems];
-        
-        if (currentSearch) {
-            filteredItems = filteredItems.filter(item => 
-                item.name.toLowerCase().includes(currentSearch.toLowerCase())
-            );
-        }
-        
-        if (currentFilter === 'accessible') {
-            filteredItems = filteredItems.filter(item => !currentRestricted.includes(item.id));
-        } else if (currentFilter === 'restricted') {
-            filteredItems = filteredItems.filter(item => currentRestricted.includes(item.id));
-        }
-        
-        if (filteredItems.length === 0) {
-            grid.innerHTML = '<div style="text-align: center; padding: 60px; grid-column: 1/-1;"><i class="fas fa-info-circle" style="font-size: 48px; color: #cbd5e0;"></i><p style="margin-top: 20px;">No items found</p></div>';
-            return;
-        }
-        
-        let html = '';
-        filteredItems.forEach(item => {
-            const isRestricted = currentRestricted.includes(item.id);
-            const isSelected = selectedItems.has(item.id);
-            const statusClass = isRestricted ? 'restricted' : 'accessible';
-            
-            html += `
-                <div class="permission-item ${statusClass} ${isSelected ? 'selected' : ''}" 
-                     onclick="toggleItemSelection(${item.id}, event)"
-                     data-item-id="${item.id}"
-                     data-restricted="${isRestricted}">
-                    <div class="item-icon">
-                        <i class="fas ${item.type === 'folder' ? 'fa-folder' : 'fa-file'}"></i>
-                    </div>
-                    <div class="item-name">${escapeHtml(item.name)}</div>
-                    <div class="item-type">${item.type.toUpperCase()} ${item.size ? '• ' + (item.size / 1024 / 1024).toFixed(1) + ' MB' : ''}</div>
-                    <div class="item-status" style="margin-top: 8px; font-size: 12px;">
-                        ${isRestricted ? '🔴 Restricted' : '🟢 Accessible'}
-                    </div>
-                </div>
-            `;
-        });
-        
-        grid.innerHTML = html;
-        updateSelectedInfo();
-    }
-
-    function toggleItemSelection(itemId, event) {
-        event.stopPropagation();
-        if (selectedItems.has(itemId)) {
-            selectedItems.delete(itemId);
-        } else {
-            selectedItems.add(itemId);
-        }
-        
-        const element = document.querySelector(`.permission-item[data-item-id="${itemId}"]`);
-        if (element) {
-            if (selectedItems.has(itemId)) {
-                element.classList.add('selected');
-            } else {
-                element.classList.remove('selected');
-            }
-        }
-        
-        updateSelectedInfo();
-    }
-
-    function updateSelectedInfo() {
-        const infoDiv = document.getElementById('selectedInfo');
-        if (selectedItems.size > 0) {
-            infoDiv.innerHTML = `📌 ${selectedItems.size} item(s) selected. Use the buttons below to update access.`;
-        } else {
-            infoDiv.innerHTML = 'Click on any item to select it. <strong>Green = Accessible</strong> | <strong>Red = Restricted</strong>';
-        }
-    }
-
-    function batchUpdate(action) {
-        if (selectedItems.size === 0) {
-            alert('Please select at least one item first');
-            return;
-        }
-        
-        if (action === 'grant') {
-            selectedItems.forEach(itemId => {
-                const index = currentRestricted.indexOf(itemId);
-                if (index !== -1) currentRestricted.splice(index, 1);
-            });
-        } else if (action === 'revoke') {
-            selectedItems.forEach(itemId => {
-                if (!currentRestricted.includes(itemId)) currentRestricted.push(itemId);
-            });
-        }
-        
-        savePermissions();
-        selectedItems.clear();
-        renderPermissionGrid();
-    }
-
-    function savePermissions() {
-        document.getElementById('restrictedItemsInput').value = currentRestricted.join(',');
-        document.getElementById('permissionForm').submit();
-    }
-
-    function closePermissions() {
-        document.getElementById('permissionsSection').style.display = 'none';
-        currentUserId = null;
-        selectedItems.clear();
-    }
-
-    function filterItems(filter, btn) {
-        currentFilter = filter;
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        if (btn) btn.classList.add('active');
-        renderPermissionGrid();
-    }
-
-    function searchItems() {
-        currentSearch = document.getElementById('searchInput').value;
-        renderPermissionGrid();
-    }
-
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    window.onclick = function(event) {
-        const uploadModal = document.getElementById('uploadModal');
-        const folderModal = document.getElementById('createFolderModal');
-        if (event.target === uploadModal) closeUploadModal();
-        if (event.target === folderModal) closeFolderModal();
-    }
-
-    // Load initial admin items
-    loadAdminItems(null);
+    // Initial Load
+    console.log("✅ Admin Dashboard loaded successfully");
 </script>
 {% endblock %}
