@@ -58,9 +58,8 @@ else:
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['THUMBNAIL_FOLDER'], exist_ok=True)
 
-# Database - PostgreSQL for production, SQLite for local
+# Database
 database_url = os.environ.get('DATABASE_URL')
-
 if not database_url:
     database_url = 'sqlite:///database/vault.db?check_same_thread=False'
     os.makedirs('database', exist_ok=True)
@@ -72,7 +71,6 @@ if database_url and database_url.startswith('postgres://'):
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Connection pool for 100 concurrent users
 if database_url and 'postgresql' in database_url:
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'pool_size': 20,
@@ -310,6 +308,7 @@ def admin_dashboard():
         total_folders = Item.query.filter_by(type='folder').count()
         total_downloads = Download.query.count()
         
+        # Users data
         users_data = db.session.query(
             User.id, User.pin, User.created_at, User.is_active,
             db.func.coalesce(db.func.count(DeviceLog.id), 0).label('device_count')
@@ -317,31 +316,34 @@ def admin_dashboard():
         ).group_by(User.id, User.pin, User.created_at, User.is_active
         ).order_by(User.created_at.desc()).all()
         
-        user_list = []
-        for u in users_data:
-            user_list.append({
-                'id': u[0], 
-                'pin': u[1], 
-                'created_at': u[2], 
-                'is_active': u[3], 
-                'device_count': u[4]
-            })
-        
-        # Get all items with proper formatting for JSON serialization
+        user_list = [{
+            'id': u[0], 
+            'pin': u[1], 
+            'created_at': u[2], 
+            'is_active': u[3], 
+            'device_count': u[4]
+        } for u in users_data]
+
+        # All items (safe for JSON)
         items = Item.query.order_by(Item.type.desc(), Item.name).all()
-        items_list = []
-        for item in items:
-            items_list.append({
-                'id': item.id,
-                'name': item.name,
-                'type': item.type,
-                'size': item.size if item.size else None,
-                'created_at': item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else None,
-                'parent_id': item.parent_id
-            })
-        
+        items_list = [{
+            'id': item.id,
+            'name': item.name,
+            'type': item.type,
+            'size': item.size if item.size else None,
+            'created_at': item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else None,
+            'parent_id': item.parent_id
+        } for item in items]
+
+        # Folders (safe for JSON + Jinja dropdowns)
         folders = Item.query.filter_by(type='folder').order_by(Item.name).all()
-        
+        folders_list = [{
+            'id': f.id,
+            'name': f.name,
+            'parent_id': f.parent_id,
+            'created_at': f.created_at.strftime('%Y-%m-%d %H:%M') if f.created_at else None
+        } for f in folders]
+
         return render_template('admin_dashboard.html', 
                              total_users=total_users, 
                              total_files=total_files,
@@ -349,7 +351,8 @@ def admin_dashboard():
                              total_downloads=total_downloads,
                              users=user_list, 
                              items=items_list, 
-                             folders=folders)
+                             folders=folders_list)
+
     except Exception as e:
         logger.error(f"Admin dashboard error: {e}", exc_info=True)
         flash(f'Error loading dashboard: {str(e)}', 'error')
@@ -427,7 +430,6 @@ def upload_item():
         flash('Name required', 'error')
         return redirect(url_for('admin_dashboard'))
     
-    # Validate parent exists if provided
     if parent_id:
         parent = Item.query.get(parent_id)
         if not parent or parent.type != 'folder':
@@ -514,10 +516,8 @@ def update_permissions():
     restricted_items_str = request.form.get('restricted_items', '')
     restricted_items = [int(x) for x in restricted_items_str.split(',') if x]
     
-    # Delete all existing permissions for this user
     UserItemPermission.query.filter_by(user_id=user_id).delete()
     
-    # Add new restricted permissions
     for item_id in restricted_items:
         db.session.add(UserItemPermission(user_id=user_id, item_id=item_id, can_access=False))
     
