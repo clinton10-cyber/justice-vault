@@ -317,9 +317,17 @@ def admin_dashboard():
         ).group_by(User.id, User.pin, User.created_at, User.is_active
         ).order_by(User.created_at.desc()).all()
         
-        user_list = [{'id': u[0], 'pin': u[1], 'created_at': u[2], 'is_active': u[3], 'device_count': u[4]} for u in users_data]
+        user_list = []
+        for u in users_data:
+            user_list.append({
+                'id': u[0], 
+                'pin': u[1], 
+                'created_at': u[2], 
+                'is_active': u[3], 
+                'device_count': u[4]
+            })
         
-        # Get all items with proper formatting
+        # Get all items with proper formatting for JSON serialization
         items = Item.query.order_by(Item.type.desc(), Item.name).all()
         items_list = []
         for item in items:
@@ -327,20 +335,24 @@ def admin_dashboard():
                 'id': item.id,
                 'name': item.name,
                 'type': item.type,
-                'size': item.size,
-                'created_at': item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else 'N/A',
+                'size': item.size if item.size else None,
+                'created_at': item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else None,
                 'parent_id': item.parent_id
             })
         
         folders = Item.query.filter_by(type='folder').order_by(Item.name).all()
         
         return render_template('admin_dashboard.html', 
-                             total_users=total_users, total_files=total_files,
-                             total_folders=total_folders, total_downloads=total_downloads,
-                             users=user_list, items=items_list, folders=folders)
+                             total_users=total_users, 
+                             total_files=total_files,
+                             total_folders=total_folders, 
+                             total_downloads=total_downloads,
+                             users=user_list, 
+                             items=items_list, 
+                             folders=folders)
     except Exception as e:
         logger.error(f"Admin dashboard error: {e}", exc_info=True)
-        flash(f'Error loading dashboard', 'error')
+        flash(f'Error loading dashboard: {str(e)}', 'error')
         return redirect(url_for('admin_login'))
 
 @app.route('/admin/create_pin', methods=['POST'])
