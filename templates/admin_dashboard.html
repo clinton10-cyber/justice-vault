@@ -47,7 +47,7 @@
         border-radius: 16px;
         padding: 30px;
         width: 90%;
-        max-width: 520px;
+        max-width: 800px;
         max-height: 90vh;
         overflow-y: auto;
     }
@@ -70,6 +70,26 @@
         font-weight: 600;
         cursor: pointer;
     }
+    .item-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .item-table th, .item-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .item-table th {
+        background: #f8fafc;
+    }
+    .badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .badge-folder { background: #fef3c7; color: #d97706; }
+    .badge-file { background: #e0e7ff; color: #4f46e5; }
 </style>
 
 <div style="background: #f7fafc; min-height: 100vh;">
@@ -119,13 +139,7 @@
             <h2>Users & PINs</h2>
             <table style="width: 100%; border-collapse: collapse;">
                 <thead style="background: #f8fafc;">
-                    <tr>
-                        <th style="padding: 12px; text-align: left;">PIN</th>
-                        <th>Created</th>
-                        <th>Devices</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
+                    <tr><th style="padding: 12px; text-align: left;">PIN</th><th>Created</th><th>Devices</th><th>Status</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                     {% for user in users %}
@@ -156,11 +170,23 @@
         <!-- Items Table -->
         <div style="background: white; border-radius: 12px; padding: 20px; overflow-x: auto;">
             <h2>Vault Items</h2>
-            <div id="adminItemsContainer">
-                <!-- Populated by JavaScript -->
-            </div>
+            <table class="item-table">
+                <thead>
+                    <tr><th>Name</th><th>Type</th><th>Size</th><th>Created</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td><i class="fas {{ 'fa-folder' if item.type == 'folder' else 'fa-file' }}"></i> {{ item.name }}</td>
+                        <td><span class="badge {{ 'badge-folder' if item.type == 'folder' else 'badge-file' }}">{{ item.type }}</span></td>
+                        <td>{% if item.size %}{{ (item.size / 1024 / 1024)|round(2) }} MB{% else %}—{% endif %}</td>
+                        <td>{{ item.created_at }}</td>
+                        <td><a href="{{ url_for('delete_item', item_id=item.id) }}" onclick="return confirm('Delete this item permanently?')" style="color:#ef4444;"><i class="fas fa-trash"></i> Delete</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-
     </div>
 </div>
 
@@ -170,19 +196,15 @@
         <h3><i class="fas fa-upload"></i> Upload File</h3>
         <form method="POST" action="{{ url_for('upload_item') }}" enctype="multipart/form-data">
             <input type="hidden" name="type" value="file">
-            
             <label>Name:</label>
             <input type="text" name="name" id="uploadName" required style="width:100%; padding:10px; margin:8px 0; border-radius:6px; border:1px solid #ccc;">
-
             <div class="upload-area" id="dropZone">
                 <i class="fas fa-cloud-upload-alt" style="font-size:50px; color:#667eea;"></i>
                 <p>Click or drag & drop file here</p>
                 <input type="file" name="file" id="fileInput" style="display:none;" onchange="handleFileSelect(this)">
             </div>
-
             <label style="margin-top:15px;">Folder Icon (optional):</label>
             <input type="file" name="picture" accept="image/*" style="width:100%; padding:8px;">
-
             <label style="margin-top:15px;">Parent Folder:</label>
             <select name="parent_id" style="width:100%; padding:10px; border-radius:6px;">
                 <option value="">Root Directory</option>
@@ -190,10 +212,7 @@
                 <option value="{{ folder.id }}">{{ folder.name }}</option>
                 {% endfor %}
             </select>
-
-            <button type="submit" style="width:100%; margin-top:20px; padding:14px; background:#10b981; color:white; border:none; border-radius:8px; font-size:16px;">
-                Upload File
-            </button>
+            <button type="submit" style="width:100%; margin-top:20px; padding:14px; background:#10b981; color:white; border:none; border-radius:8px; font-size:16px;">Upload File</button>
         </form>
         <button onclick="closeUploadModal()" style="width:100%; margin-top:10px; padding:12px;">Cancel</button>
     </div>
@@ -205,13 +224,10 @@
         <h3><i class="fas fa-folder-plus"></i> Create New Folder</h3>
         <form method="POST" action="{{ url_for('upload_item') }}" enctype="multipart/form-data">
             <input type="hidden" name="type" value="folder">
-
             <label>Folder Name:</label>
             <input type="text" name="name" required style="width:100%; padding:10px; margin:8px 0; border-radius:6px; border:1px solid #ccc;">
-
             <label style="margin-top:15px;">Folder Icon (optional):</label>
             <input type="file" name="picture" accept="image/*" style="width:100%; padding:8px;">
-
             <label style="margin-top:15px;">Parent Folder:</label>
             <select name="parent_id" style="width:100%; padding:10px; border-radius:6px;">
                 <option value="">Root Directory</option>
@@ -219,45 +235,50 @@
                 <option value="{{ folder.id }}">{{ folder.name }}</option>
                 {% endfor %}
             </select>
-
-            <button type="submit" style="width:100%; margin-top:20px; padding:14px; background:#3b82f6; color:white; border:none; border-radius:8px; font-size:16px;">
-                Create Folder
-            </button>
+            <button type="submit" style="width:100%; margin-top:20px; padding:14px; background:#3b82f6; color:white; border:none; border-radius:8px; font-size:16px;">Create Folder</button>
         </form>
         <button onclick="closeFolderModal()" style="width:100%; margin-top:10px; padding:12px;">Cancel</button>
     </div>
 </div>
 
+<!-- ====================== PERMISSION MANAGEMENT MODAL ====================== -->
+<div id="permissionModal" class="modal">
+    <div class="modal-content">
+        <h3><i class="fas fa-lock"></i> Manage Access for PIN: <span id="modalUserPin"></span></h3>
+        <p>Click on an item to toggle <strong>Restricted</strong> (red) / <strong>Accessible</strong> (green).</p>
+        <div id="permissionGrid" class="permission-grid"></div>
+        <div style="display: flex; gap: 12px; margin-top: 24px;">
+            <button onclick="savePermissions()" class="action-btn" style="background: #10b981; color: white; flex:1;">Save Changes</button>
+            <button onclick="closePermissionModal()" class="action-btn" style="background: #6c757d; color: white; flex:1;">Cancel</button>
+        </div>
+    </div>
+</div>
+
 <script>
-    // Modal Functions
-    function openUploadModal() {
-        document.getElementById('uploadModal').style.display = 'flex';
-    }
-    function closeUploadModal() {
-        document.getElementById('uploadModal').style.display = 'none';
-    }
-    function openFolderModal() {
-        document.getElementById('createFolderModal').style.display = 'flex';
-    }
-    function closeFolderModal() {
-        document.getElementById('createFolderModal').style.display = 'none';
-    }
+    // Embed all items from the server into a JavaScript variable
+    const allItems = {{ items | tojson }};
+    let currentUserId = null;
+    let currentRestrictedIds = [];   // list of item IDs that are restricted for this user
+
+    // Modal control functions
+    function openUploadModal() { document.getElementById('uploadModal').style.display = 'flex'; }
+    function closeUploadModal() { document.getElementById('uploadModal').style.display = 'none'; }
+    function openFolderModal() { document.getElementById('createFolderModal').style.display = 'flex'; }
+    function closeFolderModal() { document.getElementById('createFolderModal').style.display = 'none'; }
+    function closePermissionModal() { document.getElementById('permissionModal').style.display = 'none'; }
 
     // Click outside to close
     window.onclick = function(event) {
         if (event.target.id === 'uploadModal') closeUploadModal();
         if (event.target.id === 'createFolderModal') closeFolderModal();
+        if (event.target.id === 'permissionModal') closePermissionModal();
     };
 
-    // Drag and Drop + File Select
+    // Drag & Drop + File Select
     const dropZone = document.getElementById('dropZone');
     if (dropZone) {
         dropZone.addEventListener('click', () => document.getElementById('fileInput').click());
-        
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('drag-over');
-        });
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
         dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
         dropZone.addEventListener('drop', (e) => {
             e.preventDefault();
@@ -269,15 +290,104 @@
             }
         });
     }
-
     function handleFileSelect(input) {
         const file = input.files[0];
-        if (file) {
-            document.getElementById('uploadName').value = file.name.replace(/\.[^/.]+$/, "");
+        if (file) document.getElementById('uploadName').value = file.name.replace(/\.[^/.]+$/, "");
+    }
+
+    // ---------------------- PERMISSION LOGIC ----------------------
+    async function selectUserForPermissions(userId, userPin) {
+        currentUserId = userId;
+        document.getElementById('modalUserPin').innerText = userPin;
+        
+        // Fetch current restricted items for this user
+        try {
+            const response = await fetch(`/admin/get_permissions/${userId}`);
+            const data = await response.json();
+            currentRestrictedIds = data.restricted || [];
+            buildPermissionGrid();
+            document.getElementById('permissionModal').style.display = 'flex';
+        } catch (err) {
+            console.error("Failed to load permissions:", err);
+            alert("Could not load user permissions. Please try again.");
         }
     }
 
-    // Initial Load
-    console.log("✅ Admin Dashboard loaded successfully");
+    function buildPermissionGrid() {
+        const grid = document.getElementById('permissionGrid');
+        if (!grid) return;
+        grid.innerHTML = '';
+        
+        // Display only files and folders that are not in a restricted parent? For simplicity, show all items.
+        // But you may want to show only top-level or all. Here we show all items from the server.
+        for (const item of allItems) {
+            const isRestricted = currentRestrictedIds.includes(item.id);
+            const div = document.createElement('div');
+            div.className = `permission-item ${isRestricted ? 'restricted' : 'accessible'}`;
+            div.setAttribute('data-item-id', item.id);
+            div.innerHTML = `
+                <i class="fas ${item.type === 'folder' ? 'fa-folder' : 'fa-file'}"></i>
+                <strong>${escapeHtml(item.name)}</strong><br>
+                <small>${item.type}</small>
+            `;
+            div.onclick = (e) => {
+                e.stopPropagation();
+                toggleItemRestriction(item.id, div);
+            };
+            grid.appendChild(div);
+        }
+    }
+
+    function toggleItemRestriction(itemId, element) {
+        const idx = currentRestrictedIds.indexOf(itemId);
+        if (idx === -1) {
+            // Currently accessible → restrict
+            currentRestrictedIds.push(itemId);
+            element.classList.remove('accessible');
+            element.classList.add('restricted');
+        } else {
+            // Currently restricted → allow access
+            currentRestrictedIds.splice(idx, 1);
+            element.classList.remove('restricted');
+            element.classList.add('accessible');
+        }
+    }
+
+    async function savePermissions() {
+        if (!currentUserId) return;
+        const formData = new URLSearchParams();
+        formData.append('user_id', currentUserId);
+        formData.append('restricted_items', currentRestrictedIds.join(','));
+        
+        try {
+            const response = await fetch('/admin/update_permissions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString()
+            });
+            if (response.ok) {
+                alert('Permissions updated successfully!');
+                closePermissionModal();
+            } else {
+                alert('Failed to update permissions. Server error.');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Network error while saving permissions.');
+        }
+    }
+
+    // Helper to escape HTML to prevent XSS
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    console.log("✅ Admin Dashboard fully loaded with permission management.");
 </script>
 {% endblock %}
