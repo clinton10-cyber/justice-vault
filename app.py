@@ -49,9 +49,9 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 app.config['SESSION_REFRESH_EACH_REQUEST'] = False
 
-# Upload limits - Cloudflare free tier max is 100MB, so enforce that
-CLOUDFLARE_MAX_SIZE = 100 * 1024 * 1024
-app.config['MAX_CONTENT_LENGTH'] = CLOUDFLARE_MAX_SIZE
+# Upload limits - default 500MB, can be changed via env var
+MAX_UPLOAD_SIZE = int(os.environ.get('MAX_UPLOAD_SIZE', 500 * 1024 * 1024))
+app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_SIZE
 
 # Storage paths
 if IS_RENDER:
@@ -283,8 +283,8 @@ def admin_required(f):
 # ==================== REQUEST HANDLERS ====================
 @app.before_request
 def before_request():
-    """Set secure cookie flag dynamically if behind HTTPS proxy (Cloudflare)"""
-    # Detect if the request came through HTTPS (Cloudflare sets X-Forwarded-Proto)
+    """Set secure cookie flag dynamically if behind HTTPS proxy"""
+    # Detect if the request came through HTTPS
     if request.headers.get('X-Forwarded-Proto') == 'https' or request.is_secure:
         app.config['SESSION_COOKIE_SECURE'] = True
     else:
@@ -504,12 +504,12 @@ def upload_item():
         flash(f'Folder "{name}" created successfully!', 'success')
 
     elif item_type == 'file' and file and file.filename:
-        # Check file size (additional check beyond MAX_CONTENT_LENGTH)
+        # Check file size against configured limit
         file.seek(0, os.SEEK_END)
         file_size = file.tell()
         file.seek(0)
-        if file_size > CLOUDFLARE_MAX_SIZE:
-            flash(f'File too large. Maximum size is {CLOUDFLARE_MAX_SIZE // (1024*1024)}MB.', 'error')
+        if file_size > MAX_UPLOAD_SIZE:
+            flash(f'File too large. Maximum size is {MAX_UPLOAD_SIZE // (1024*1024)}MB.', 'error')
             return redirect(url_for('admin_dashboard', folder_id=parent_id))
 
         original_filename = secure_filename(file.filename)
@@ -728,7 +728,7 @@ def logout():
 # ==================== ERROR HANDLERS ====================
 @app.errorhandler(413)
 def too_large(e):
-    flash('File too large. Maximum size is 100MB (Cloudflare limit).', 'error')
+    flash(f'File too large. Maximum size is {MAX_UPLOAD_SIZE // (1024*1024)}MB.', 'error')
     return redirect(request.url)
 
 @app.errorhandler(404)
@@ -755,7 +755,7 @@ print("✅ JUSTICE VAULT APP IS READY", file=sys.stderr)
 print("📍 Admin login: /admin", file=sys.stderr)
 print("📍 User vault: /vault", file=sys.stderr)
 print("📍 Default admin password: admin123 (CHANGE ME!)", file=sys.stderr)
-print(f"📍 Max upload size: {CLOUDFLARE_MAX_SIZE // (1024*1024)}MB (Cloudflare compatible)", file=sys.stderr)
+print(f"📍 Max upload size: {MAX_UPLOAD_SIZE // (1024*1024)}MB", file=sys.stderr)
 print("=" * 50, file=sys.stderr)
 sys.stderr.flush()
 
