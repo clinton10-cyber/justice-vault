@@ -7,7 +7,6 @@ import logging
 import mimetypes
 import sys
 import time
-import socket
 import threading
 from datetime import datetime, timedelta
 from functools import wraps
@@ -43,13 +42,13 @@ app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 IS_RENDER = bool(os.environ.get('RENDER'))
 IS_PRODUCTION = os.environ.get('FLASK_ENV') == 'production'
 
-# Session - secure cookie will be set dynamically in before_request
+# Session configuration
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 app.config['SESSION_REFRESH_EACH_REQUEST'] = False
 
-# Upload limits - default 500MB, can be changed via env var
+# Upload limits - configurable via environment variable (default: 500MB)
 MAX_UPLOAD_SIZE = int(os.environ.get('MAX_UPLOAD_SIZE', 500 * 1024 * 1024))
 app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_SIZE
 
@@ -255,7 +254,6 @@ def init_database_with_retry(max_retries=5, delay=2):
     for attempt in range(max_retries):
         try:
             with app.app_context():
-                # Test connection with a simple query
                 db.session.execute(text('SELECT 1'))
                 db.create_all()
                 logger.info("Database initialized successfully")
@@ -265,7 +263,7 @@ def init_database_with_retry(max_retries=5, delay=2):
             if attempt == max_retries - 1:
                 logger.error("Could not initialize database after all retries")
                 raise
-            time.sleep(delay * (2 ** attempt))  # exponential backoff
+            time.sleep(delay * (2 ** attempt))
     return False
 
 # ==================== AUTHENTICATION ====================
@@ -283,23 +281,19 @@ def admin_required(f):
 # ==================== REQUEST HANDLERS ====================
 @app.before_request
 def before_request():
-    """Set secure cookie flag dynamically if behind HTTPS proxy"""
-    # Detect if the request came through HTTPS
-    if request.headers.get('X-Forwarded-Proto') == 'https' or request.is_secure:
+    """Set secure cookie flag for HTTPS if applicable"""
+    if request.is_secure:
         app.config['SESSION_COOKIE_SECURE'] = True
     else:
         app.config['SESSION_COOKIE_SECURE'] = False
 
-    # Refresh session for active users
     if session.get('user_id'):
         session.permanent = True
 
 # ==================== HEALTH ROUTES ====================
 @app.route('/health')
 def health_check():
-    """Full health check with database verification (with timeout)"""
     try:
-        # Use a short timeout for the DB query
         db.session.execute(text('SELECT 1')).fetchone()
         return jsonify({
             'status': 'healthy',
@@ -316,7 +310,6 @@ def health_check():
 
 @app.route('/health/simple')
 def simple_health():
-    """Lightweight health check for load balancers"""
     return jsonify({"status": "alive", "port": os.environ.get('PORT', 5000)}), 200
 
 # ==================== THUMBNAIL SERVING ====================
@@ -504,7 +497,6 @@ def upload_item():
         flash(f'Folder "{name}" created successfully!', 'success')
 
     elif item_type == 'file' and file and file.filename:
-        # Check file size against configured limit
         file.seek(0, os.SEEK_END)
         file_size = file.tell()
         file.seek(0)
@@ -518,7 +510,6 @@ def upload_item():
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
         file.save(file_path)
 
-        # Store thumbnail path (might be updated later by async task)
         thumbnail_path = None
         if picture and picture.filename:
             thumb_filename = f"thumb_{secrets.token_hex(16)}.jpg"
@@ -534,7 +525,6 @@ def upload_item():
         db.session.add(item)
         db.session.commit()
 
-        # If this is an image and no custom thumbnail was provided, generate one asynchronously
         if not thumbnail_path and mime_type and mime_type.startswith('image/'):
             thread = threading.Thread(
                 target=create_thumbnail_async,
@@ -741,17 +731,14 @@ def server_error(e):
     return render_template('error.html', error_message="Internal server error. Please try again."), 500
 
 # ==================== INITIALIZATION ====================
-# Initialize database with retries (non-blocking for startup)
 try:
     init_database_with_retry(max_retries=5, delay=2)
 except Exception as e:
     logger.critical(f"FATAL: Could not initialize database: {e}")
-    # In production, you might want to exit or keep retrying in background
-    # We'll keep the app running but mark as unhealthy
 
 # Print startup info
 print("=" * 50, file=sys.stderr)
-print("✅ JUSTICE VAULT APP IS READY", file=sys.stderr)
+print("✅ VAULT APP IS READY", file=sys.stderr)
 print("📍 Admin login: /admin", file=sys.stderr)
 print("📍 User vault: /vault", file=sys.stderr)
 print("📍 Default admin password: admin123 (CHANGE ME!)", file=sys.stderr)
@@ -763,12 +750,10 @@ sys.stderr.flush()
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV') == 'development'
-    # For production, use gunicorn instead of app.run()
+    
     if not IS_PRODUCTION:
         app.run(host='0.0.0.0', port=port, debug=debug, threaded=True)
     else:
-        # This block is only reached if someone runs `python app.py` in production
-        # Recommended: use `gunicorn -w 4 -b 0.0.0.0:5000 app:app`
         print("⚠️  Running in production mode with Flask built-in server is not recommended.", file=sys.stderr)
         print("⚠️  Use: gunicorn -w 4 -b 0.0.0.0:$PORT app:app", file=sys.stderr)
         app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
