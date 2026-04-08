@@ -268,6 +268,25 @@ def health_check():
 def simple_health():
     return jsonify({"status": "alive", "port": os.environ.get('PORT', 5000)}), 200
 
+# ==================== OWNER IMAGE ROUTE ====================
+@app.route('/owner-image')
+def owner_image():
+    """Serve owner image from templates folder"""
+    try:
+        image_path = os.path.join(app.root_path, 'templates', 'owner.jpg')
+        if os.path.exists(image_path):
+            return send_file(image_path, mimetype='image/jpeg')
+        else:
+            # Try alternative locations
+            alt_paths = ['owner.jpg', 'static/owner.jpg', 'templates/owner.jpg']
+            for path in alt_paths:
+                if os.path.exists(path):
+                    return send_file(path, mimetype='image/jpeg')
+            return '', 404
+    except Exception as e:
+        logger.error(f"Error serving owner image: {e}")
+        return '', 404
+
 # ==================== THUMBNAIL SERVING ====================
 @app.route('/thumbnail/<path:filename>')
 def serve_thumbnail(filename):
@@ -356,7 +375,7 @@ def admin_dashboard(folder_id=None):
                 else:
                     break
 
-        # All folders for dropdowns (optional)
+        # All folders for dropdowns
         all_folders = Item.query.filter_by(type='folder').order_by(Item.name).all()
         folders_list = [{'id': f.id, 'name': f.name, 'parent_id': f.parent_id} for f in all_folders]
 
@@ -543,7 +562,6 @@ def update_permissions():
     
     db.session.commit()
     flash('Permissions updated successfully!', 'success')
-    # Redirect back to the same folder
     folder_id = request.args.get('folder_id')
     return redirect(url_for('admin_dashboard', folder_id=folder_id))
 
