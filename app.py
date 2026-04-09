@@ -277,7 +277,6 @@ def owner_image():
         if os.path.exists(image_path):
             return send_file(image_path, mimetype='image/jpeg')
         else:
-            # Try alternative locations
             alt_paths = ['owner.jpg', 'static/owner.jpg', 'templates/owner.jpg']
             for path in alt_paths:
                 if os.path.exists(path):
@@ -352,7 +351,7 @@ def admin_dashboard(folder_id=None):
                 flash('Invalid folder', 'error')
                 return redirect(url_for('admin_dashboard'))
         
-        # Items inside current folder
+        # Items inside current folder (ALWAYS defined)
         items = Item.query.filter_by(parent_id=folder_id).order_by(Item.type.desc(), Item.name).all()
         items_list = [{
             'id': item.id,
@@ -362,6 +361,10 @@ def admin_dashboard(folder_id=None):
             'created_at': item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else None,
             'parent_id': item.parent_id
         } for item in items]
+
+        # All folders for dropdowns (ALWAYS defined)
+        all_folders = Item.query.filter_by(type='folder').order_by(Item.name).all()
+        folders_list = [{'id': f.id, 'name': f.name, 'parent_id': f.parent_id} for f in all_folders]
 
         # Breadcrumb
         breadcrumb = []
@@ -374,10 +377,6 @@ def admin_dashboard(folder_id=None):
                     temp_id = crumb.parent_id
                 else:
                     break
-
-        # All folders for dropdowns
-        all_folders = Item.query.filter_by(type='folder').order_by(Item.name).all()
-        folders_list = [{'id': f.id, 'name': f.name, 'parent_id': f.parent_id} for f in all_folders]
 
         return render_template('admin_dashboard.html', 
                              total_users=total_users, 
