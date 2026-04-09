@@ -1,5 +1,7 @@
 # SecureVault Pro
+## License
 
+© 2026 Clinton Benjamin. All rights reserved.
 ## Quick Start
 
 1. Install Python 3.11+
