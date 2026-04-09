@@ -43,8 +43,8 @@ print(f"📡 Environment: {'RENDER' if IS_RENDER else 'LOCAL'}", file=sys.stderr
 app.config['SESSION_COOKIE_SECURE'] = False
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
-app.config['SESSION_REFRESH_EACH_REQUEST'] = False
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=60)  # Increased to 60 minutes
+app.config['SESSION_REFRESH_EACH_REQUEST'] = True  # Refresh session on each request
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
 
 # Storage
@@ -189,11 +189,11 @@ def get_file_icon(mime_type):
     if not mime_type:
         return 'fa-file'
     if mime_type.startswith('image/'):
-        return 'fa-image'
+        return 'fa-file-image'
     elif mime_type.startswith('video/'):
-        return 'fa-video'
+        return 'fa-file-video'
     elif mime_type.startswith('audio/'):
-        return 'fa-music'
+        return 'fa-file-audio'
     elif mime_type == 'application/pdf':
         return 'fa-file-pdf'
     elif 'zip' in mime_type or 'rar' in mime_type or 'compressed' in mime_type:
@@ -206,8 +206,6 @@ def get_file_icon(mime_type):
         return 'fa-file-powerpoint'
     elif mime_type.startswith('text/'):
         return 'fa-file-alt'
-    elif mime_type == 'application/pdf':
-        return 'fa-file-pdf'
     else:
         return 'fa-file'
 
@@ -320,7 +318,7 @@ def serve_thumbnail(filename):
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_login():
     if session.get('is_admin'):
-        session.pop('is_admin', None)
+        return redirect(url_for('admin_dashboard'))
     
     if request.method == 'POST':
         password = request.form.get('password')
@@ -378,7 +376,7 @@ def admin_dashboard(folder_id=None):
             'size_formatted': format_file_size(item.size),
             'created_at': item.created_at,
             'parent_id': item.parent_id,
-            'mime_type': item.mime_type,
+            'mime_type': item.mime_type or '',
             'icon': 'fa-folder' if item.type == 'folder' else get_file_icon(item.mime_type),
             'thumbnail_path': item.thumbnail_path
         } for item in items]
@@ -419,62 +417,89 @@ def admin_dashboard(folder_id=None):
 @app.route('/admin/create_pin', methods=['POST'])
 @admin_required
 def create_pin():
-    folder_id = request.form.get('folder_id')
-    pin = ''.join(secrets.choice('ABCDEFGHJKLMNPQRSTUVWXYZ0123456789') for _ in range(8))
+    folder_id = request.form.get('folder_id', '')
+    
+    # Generate a clean, readable PIN
+    pin = ''.join(secrets.choice('ABCDEFGHJKLMNPQRSTUVWXYZ23456789') for _ in range(8))
+    
     user = User(pin=pin, is_active=True)
     db.session.add(user)
+    
     try:
         db.session.commit()
-        flash(f'PIN created: {pin}', 'success')
+        flash(f'✅ PIN created successfully: {pin}', 'success')
+        logger.info(f"New PIN generated: {pin}")
     except Exception as e:
         db.session.rollback()
-        flash('Failed to create PIN', 'error')
-    return redirect(url_for('admin_dashboard', folder_id=folder_id if folder_id else None))
+        logger.error(f"Failed to create PIN: {e}")
+        flash('❌ Failed to create PIN. Please try again.', 'error')
+    
+    # Redirect back to the same folder
+    if folder_id and folder_id != 'None' and folder_id != '':
+        return redirect(url_for('admin_dashboard', folder_id=int(folder_id)))
+    else:
+        return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/revoke_pin/<int:user_id>')
 @admin_required
 def revoke_pin(user_id):
-    folder_id = request.args.get('folder_id')
+    folder_id = request.args.get('folder_id', '')
     user = User.query.get(user_id)
     if user:
         user.is_active = False
         db.session.commit()
-        flash(f'PIN {user.pin} revoked', 'success')
+        flash(f'🔒 PIN {user.pin} has been revoked', 'success')
     else:
         flash('User not found', 'error')
-    return redirect(url_for('admin_dashboard', folder_id=folder_id if folder_id else None))
+    
+    if folder_id and folder_id != 'None' and folder_id != '':
+        return redirect(url_for('admin_dashboard', folder_id=int(folder_id)))
+    else:
+        return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/activate_pin/<int:user_id>')
 @admin_required
 def activate_pin(user_id):
-    folder_id = request.args.get('folder_id')
+    folder_id = request.args.get('folder_id', '')
     user = User.query.get(user_id)
     if user:
         user.is_active = True
         db.session.commit()
-        flash(f'PIN {user.pin} activated', 'success')
+        flash(f'🔓 PIN {user.pin} has been activated', 'success')
     else:
         flash('User not found', 'error')
-    return redirect(url_for('admin_dashboard', folder_id=folder_id if folder_id else None))
+    
+    if folder_id and folder_id != 'None' and folder_id != '':
+        return redirect(url_for('admin_dashboard', folder_id=int(folder_id)))
+    else:
+        return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/delete_pin/<int:user_id>')
 @admin_required
 def delete_pin(user_id):
-    folder_id = request.args.get('folder_id')
+    folder_id = request.args.get('folder_id', '')
     user = User.query.get(user_id)
     if user:
         pin = user.pin
         db.session.delete(user)
         db.session.commit()
-        flash(f'User {pin} permanently deleted', 'success')
+        flash(f'🗑️ User with PIN {pin} has been permanently deleted', 'success')
     else:
         flash('User not found', 'error')
-    return redirect(url_for('admin_dashboard', folder_id=folder_id if folder_id else None))
+    
+    if folder_id and folder_id != 'None' and folder_id != '':
+        return redirect(url_for('admin_dashboard', folder_id=int(folder_id)))
+    else:
+        return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/user_devices/<int:user_id>')
 @admin_required
 def user_devices(user_id):
     user = User.query.get(user_id)
+    if not user:
+        flash('User not found', 'error')
+        return redirect(url_for('admin_dashboard'))
+    
     devices = DeviceLog.query.filter_by(user_id=user_id).order_by(DeviceLog.accessed_at.desc()).limit(50).all()
     downloads = db.session.query(Download, Item.name).join(Item).filter(Download.user_id == user_id).order_by(Download.downloaded_at.desc()).limit(20).all()
     return render_template('user_devices.html', devices=devices, downloads=downloads, user=user)
@@ -488,16 +513,20 @@ def upload_item():
     file = request.files.get('file')
     picture = request.files.get('picture')
     
-    if parent_id == '' or parent_id == 'None':
+    # Handle parent_id properly
+    if not parent_id or parent_id == '' or parent_id == 'None':
         parent_id = None
-    elif parent_id:
-        parent_id = int(parent_id)
-        parent = Item.query.get(parent_id)
-        if not parent or parent.type != 'folder':
+    else:
+        try:
+            parent_id = int(parent_id)
+            parent = Item.query.get(parent_id)
+            if not parent or parent.type != 'folder':
+                parent_id = None
+        except (ValueError, TypeError):
             parent_id = None
     
     if not name:
-        flash('Name required', 'error')
+        flash('Name is required', 'error')
         return redirect(url_for('admin_dashboard', folder_id=parent_id))
     
     if item_type == 'folder':
@@ -508,11 +537,11 @@ def upload_item():
             picture.save(thumb_full_path)
             thumbnail_path = thumb_full_path
         
-        item = Item(name=name, type='folder', file_path=None, 
+        item = Item(name=name.strip(), type='folder', file_path=None, 
                    thumbnail_path=thumbnail_path, parent_id=parent_id)
         db.session.add(item)
         db.session.commit()
-        flash(f'Folder "{name}" created successfully!', 'success')
+        flash(f'📁 Folder "{name}" created successfully!', 'success')
         
     elif item_type == 'file' and file and file.filename:
         original_filename = secure_filename(file.filename)
@@ -536,12 +565,12 @@ def upload_item():
         file_size = os.path.getsize(file_path)
         mime_type = file.content_type or mimetypes.guess_type(original_filename)[0]
         
-        item = Item(name=name, original_filename=original_filename, type='file', 
+        item = Item(name=name.strip(), original_filename=original_filename, type='file', 
                    file_path=file_path, thumbnail_path=thumbnail_path, 
                    parent_id=parent_id, size=file_size, mime_type=mime_type)
         db.session.add(item)
         db.session.commit()
-        flash(f'File "{name}" uploaded successfully!', 'success')
+        flash(f'📄 File "{name}" uploaded successfully!', 'success')
     else:
         flash('Please provide a file for file type upload', 'error')
     
@@ -552,6 +581,7 @@ def upload_item():
 def delete_item(item_id):
     item = Item.query.get(item_id)
     parent_id = item.parent_id if item else None
+    
     if item:
         name = item.name
         if item.type == 'folder':
@@ -575,9 +605,10 @@ def delete_item(item_id):
         
         db.session.delete(item)
         db.session.commit()
-        flash(f'"{name}" permanently deleted', 'success')
+        flash(f'🗑️ "{name}" permanently deleted', 'success')
     else:
         flash('Item not found', 'error')
+    
     return redirect(url_for('admin_dashboard', folder_id=parent_id))
 
 @app.route('/admin/move_item/<int:item_id>', methods=['POST'])
@@ -586,20 +617,29 @@ def move_item(item_id):
     new_parent_id = request.form.get('new_parent_id')
     current_folder_id = request.form.get('current_folder_id')
     
-    if new_parent_id == '' or new_parent_id == 'None':
+    # Handle new_parent_id properly
+    if not new_parent_id or new_parent_id == '' or new_parent_id == 'None':
         new_parent_id = None
-    elif new_parent_id:
-        new_parent_id = int(new_parent_id)
+    else:
+        try:
+            new_parent_id = int(new_parent_id)
+        except (ValueError, TypeError):
+            new_parent_id = None
     
     item = Item.query.get(item_id)
     if item:
+        old_parent = item.parent_id
         item.parent_id = new_parent_id
         db.session.commit()
-        flash(f'"{item.name}" moved successfully!', 'success')
+        flash(f'📦 "{item.name}" moved successfully!', 'success')
+        logger.info(f"Item {item_id} moved from folder {old_parent} to {new_parent_id}")
     else:
         flash('Item not found', 'error')
     
-    return redirect(url_for('admin_dashboard', folder_id=current_folder_id if current_folder_id else None))
+    if current_folder_id and current_folder_id != 'None' and current_folder_id != '':
+        return redirect(url_for('admin_dashboard', folder_id=int(current_folder_id)))
+    else:
+        return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/rename_item/<int:item_id>', methods=['POST'])
 @admin_required
@@ -609,13 +649,18 @@ def rename_item(item_id):
     
     item = Item.query.get(item_id)
     if item and new_name:
-        item.name = new_name
+        old_name = item.name
+        item.name = new_name.strip()
         db.session.commit()
-        flash(f'Item renamed to "{new_name}"', 'success')
+        flash(f'✏️ Item renamed from "{old_name}" to "{new_name}"', 'success')
+        logger.info(f"Item {item_id} renamed from '{old_name}' to '{new_name}'")
     else:
         flash('Failed to rename item', 'error')
     
-    return redirect(url_for('admin_dashboard', folder_id=current_folder_id if current_folder_id else None))
+    if current_folder_id and current_folder_id != 'None' and current_folder_id != '':
+        return redirect(url_for('admin_dashboard', folder_id=int(current_folder_id)))
+    else:
+        return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/get_permissions/<int:user_id>')
 @admin_required
@@ -628,23 +673,45 @@ def get_permissions(user_id):
 def update_permissions():
     user_id = request.form.get('user_id')
     restricted_items_str = request.form.get('restricted_items', '')
-    folder_id = request.form.get('folder_id')
+    folder_id = request.form.get('folder_id', '')
     
-    restricted_items = [int(x) for x in restricted_items_str.split(',') if x]
+    if not user_id:
+        flash('Please select a user', 'error')
+        if folder_id and folder_id != 'None' and folder_id != '':
+            return redirect(url_for('admin_dashboard', folder_id=int(folder_id)))
+        else:
+            return redirect(url_for('admin_dashboard'))
     
-    UserItemPermission.query.filter_by(user_id=user_id).delete()
+    try:
+        user_id = int(user_id)
+        restricted_items = [int(x) for x in restricted_items_str.split(',') if x.strip()]
+        
+        # Delete existing permissions for this user
+        UserItemPermission.query.filter_by(user_id=user_id).delete()
+        
+        # Add new restricted items
+        for item_id in restricted_items:
+            db.session.add(UserItemPermission(user_id=user_id, item_id=item_id, can_access=False))
+        
+        db.session.commit()
+        
+        user = User.query.get(user_id)
+        flash(f'🔐 Permissions updated successfully for PIN: {user.pin}', 'success')
+        logger.info(f"Permissions updated for user {user_id}, restricted items: {restricted_items}")
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Failed to update permissions: {e}")
+        flash('Failed to update permissions', 'error')
     
-    for item_id in restricted_items:
-        db.session.add(UserItemPermission(user_id=user_id, item_id=item_id, can_access=False))
-    
-    db.session.commit()
-    flash('Permissions updated successfully!', 'success')
-    return redirect(url_for('admin_dashboard', folder_id=folder_id if folder_id else None))
+    if folder_id and folder_id != 'None' and folder_id != '':
+        return redirect(url_for('admin_dashboard', folder_id=int(folder_id)))
+    else:
+        return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/logout')
 def admin_logout():
     session.pop('is_admin', None)
-    flash('Logged out', 'success')
+    flash('Logged out successfully', 'success')
     return redirect(url_for('admin_login'))
 
 # ==================== USER ROUTES ====================
@@ -655,7 +722,7 @@ def index():
 @app.route('/vault', methods=['GET', 'POST'])
 def user_vault():
     if request.method == 'POST':
-        pin = request.form.get('pin')
+        pin = request.form.get('pin', '').strip().upper()
         user = get_user_by_pin(pin)
         if user and user.is_active:
             session['user_id'] = user.id
@@ -676,8 +743,12 @@ def user_vault():
     parent_id = request.args.get('folder', None)
     
     if parent_id and parent_id != 'None':
-        parent_id_int = int(parent_id) if parent_id else None
-        items = Item.query.filter_by(parent_id=parent_id_int).order_by(Item.type.desc(), Item.name).all()
+        try:
+            parent_id_int = int(parent_id)
+            items = Item.query.filter_by(parent_id=parent_id_int).order_by(Item.type.desc(), Item.name).all()
+        except (ValueError, TypeError):
+            items = Item.query.filter_by(parent_id=None).order_by(Item.type.desc(), Item.name).all()
+            parent_id = None
     else:
         items = Item.query.filter_by(parent_id=None).order_by(Item.type.desc(), Item.name).all()
         parent_id = None
@@ -721,7 +792,7 @@ def download_item(item_id):
     
     user_id = session['user_id']
     if item_id in get_user_permissions(user_id):
-        flash('Access denied', 'error')
+        flash('Access denied to this item', 'error')
         return redirect(url_for('user_vault'))
     
     item = Item.query.get(item_id)
@@ -729,6 +800,7 @@ def download_item(item_id):
         flash('Item not found', 'error')
         return redirect(url_for('user_vault'))
     
+    # Log download
     download = Download(user_id=user_id, item_id=item_id)
     db.session.add(download)
     db.session.commit()
