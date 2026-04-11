@@ -8,6 +8,7 @@ import mimetypes
 import sys
 import time
 import socket
+import re
 import requests
 from datetime import datetime, timedelta
 from functools import wraps
@@ -252,6 +253,53 @@ def is_folder_link(url):
         '/sh/', '/folder/'
     ]
     return any(indicator in url for indicator in folder_indicators)
+
+def get_google_drive_direct_url(url):
+    """Convert any Google Drive URL to a working direct download URL"""
+    # Extract file ID from various Google Drive URL formats
+    patterns = [
+        r'/file/d/([a-zA-Z0-9_-]+)',           # /file/d/FILE_ID/view
+        r'id=([a-zA-Z0-9_-]+)',                 # ?id=FILE_ID
+        r'/uc\?id=([a-zA-Z0-9_-]+)',            # /uc?id=FILE_ID
+        r'open\?id=([a-zA-Z0-9_-]+)',           # open?id=FILE_ID
+        r'drive\.google\.com/file/d/([a-zA-Z0-9_-]+)',  # Full URL pattern
+        r'drive\.usercontent\.google\.com/download\?id=([a-zA-Z0-9_-]+)'  # Already converted
+    ]
+    
+    file_id = None
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            file_id = match.group(1)
+            break
+    
+    if file_id:
+        # Use the drive.usercontent.google.com domain which works better for direct downloads
+        return f"https://drive.usercontent.google.com/download?id={file_id}&confirm=t&export=download"
+    
+    return url
+
+def handle_google_drive_response(url, response):
+    """Handle Google Drive's virus scan warning page"""
+    # Check if we got a virus scan warning page
+    if 'virus' in response.text.lower() or 'scan' in response.text.lower() or 'confirm' in response.text.lower():
+        # Try to extract the actual download URL from the warning page
+        patterns = [
+            r'href="(https://drive\.usercontent\.google\.com/[^"]+)"',
+            r'href="(https://doc-[\w-]+\.googlevideo\.com/[^"]+)"',
+            r'action="([^"]+)"',
+            r'url=([^&\s]+)'
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, response.text)
+            if match:
+                new_url = match.group(1)
+                if '&confirm=t' not in new_url:
+                    new_url += '&confirm=t' if '?' in new_url else '?confirm=t'
+                return new_url
+    
+    return None
 
 # ==================== DATABASE INITIALIZATION ====================
 def init_database():
@@ -594,6 +642,10 @@ def upload_item():
             flash('⚠️ This appears to be a folder link. Please use direct file links only.', 'error')
             return redirect(url_for('admin_dashboard', folder_id=parent_id))
         
+        # Convert Google Drive links to direct download format
+        if 'drive.google.com' in link_url or 'drive.usercontent.google.com' in link_url:
+            link_url = get_google_drive_direct_url(link_url)
+        
         thumbnail_path = None
         if picture and picture.filename:
             thumb_filename = f"thumb_{secrets.token_hex(16)}.jpg"
@@ -604,6 +656,7 @@ def upload_item():
         file_size = None
         mime_type = None
         try:
+            # Try to get file info from URL headers
             head_response = requests.head(link_url, timeout=10, allow_redirects=True)
             file_size = int(head_response.headers.get('content-length', 0)) if head_response.headers.get('content-length') else None
             mime_type = head_response.headers.get('content-type', None)
@@ -852,15 +905,62 @@ def download_item(item_id):
     db.session.add(download)
     db.session.commit()
     
+    # Handle link files (external URLs)
     if item.link_url and not item.file_path:
         try:
-            response = requests.get(item.link_url, stream=True, timeout=30, allow_redirects=True)
+            download_url = item.link_url
+            
+            # Special handling for Google Drive links
+            if 'drive.google.com' in download_url or 'drive.usercontent.google.com' in download_url:
+                download_url = get_google_drive_direct_url(download_url)
+            
+            # Make the request with proper headers to appear as a browser
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1'
+            }
+            
+            response = requests.get(download_url, stream=True, timeout=60, allow_redirects=True, headers=headers)
+            
+            # Handle Google Drive's virus scan warning page
+            if 'drive.google.com' in download_url or 'drive.usercontent.google.com' in download_url:
+                if response.status_code == 200 and ('virus' in response.text.lower() or 'scan' in response.text.lower() or 'confirm' in response.text.lower()):
+                    # Try to extract the actual download URL
+                    patterns = [
+                        r'href="(https://drive\.usercontent\.google\.com/[^"]+)"',
+                        r'href="(https://doc-[\w-]+\.googlevideo\.com/[^"]+)"',
+                        r'action="([^"]+)"',
+                        r'url=([^&\s]+)'
+                    ]
+                    
+                    for pattern in patterns:
+                        match = re.search(pattern, response.text)
+                        if match:
+                            new_url = match.group(1)
+                            if '&confirm=t' not in new_url:
+                                new_url += '&confirm=t' if '?' in new_url else '?confirm=t'
+                            response = requests.get(new_url, stream=True, timeout=60, allow_redirects=True, headers=headers)
+                            break
+            
             response.raise_for_status()
             
+            # Get filename from URL or Content-Disposition
             filename = item.original_filename or item.name
             content_disposition = response.headers.get('content-disposition')
             if content_disposition and 'filename=' in content_disposition:
-                filename = content_disposition.split('filename=')[-1].strip('"\'')
+                filename_match = re.search(r'filename[^;=\n]*=(([\'"]).*?\2|[^;\n]*)', content_disposition)
+                if filename_match:
+                    filename = filename_match.group(1).strip('"\'')
+            
+            # Ensure filename has proper extension
+            if '.' not in filename and item.mime_type:
+                ext = mimetypes.guess_extension(item.mime_type)
+                if ext:
+                    filename = f"{filename}{ext}"
             
             def generate():
                 for chunk in response.iter_content(chunk_size=8192):
@@ -873,11 +973,21 @@ def download_item(item_id):
                 download_name=filename,
                 mimetype=response.headers.get('content-type', item.mime_type or 'application/octet-stream')
             )
-        except Exception as e:
+            
+        except requests.exceptions.Timeout:
+            logger.error(f"Timeout downloading from link URL: {item.link_url}")
+            flash('Download timeout. The server took too long to respond.', 'error')
+            return redirect(url_for('user_vault', folder=item.parent_id))
+        except requests.exceptions.RequestException as e:
             logger.error(f"Failed to download from link URL {item.link_url}: {e}")
             flash('Failed to download file from external source. Please try again later.', 'error')
             return redirect(url_for('user_vault', folder=item.parent_id))
+        except Exception as e:
+            logger.error(f"Unexpected error downloading from link: {e}")
+            flash('An unexpected error occurred during download.', 'error')
+            return redirect(url_for('user_vault', folder=item.parent_id))
     
+    # Handle folder downloads (zip)
     if item.type == 'folder':
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
@@ -897,6 +1007,8 @@ def download_item(item_id):
             return response
         
         return send_file(zip_buffer, as_attachment=True, download_name=f"{item.name}.zip", mimetype='application/zip')
+    
+    # Handle regular file downloads
     else:
         if not item.file_path or not os.path.exists(item.file_path):
             flash('File not found on server', 'error')
