@@ -8,6 +8,7 @@ import mimetypes
 import sys
 import time
 import socket
+import requests
 from datetime import datetime, timedelta
 from functools import wraps
 from io import BytesIO
@@ -43,8 +44,8 @@ print(f"📡 Environment: {'RENDER' if IS_RENDER else 'LOCAL'}", file=sys.stderr
 app.config['SESSION_COOKIE_SECURE'] = False
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=60)  # Increased to 60 minutes
-app.config['SESSION_REFRESH_EACH_REQUEST'] = True  # Refresh session on each request
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=60)
+app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
 
 # Storage
@@ -121,6 +122,7 @@ class Item(db.Model):
     size: Mapped[int] = mapped_column(BigInteger, nullable=True)
     mime_type: Mapped[str] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    link_url: Mapped[str] = mapped_column(Text, nullable=True)
     children = db.relationship('Item', backref=db.backref('parent', remote_side=[id]), lazy='dynamic')
     permissions = db.relationship('UserItemPermission', backref='item', lazy='dynamic', cascade='all, delete-orphan')
     downloads = db.relationship('Download', backref='item', lazy='dynamic', cascade='all, delete-orphan')
@@ -231,7 +233,6 @@ def delete_file_from_storage(file_path):
         return False
 
 def format_file_size(size_bytes):
-    """Format file size in human readable format"""
     if size_bytes is None:
         return "Unknown"
     if size_bytes < 1024:
@@ -243,6 +244,15 @@ def format_file_size(size_bytes):
     else:
         return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
 
+def is_folder_link(url):
+    folder_indicators = [
+        '/folders/', '/drive/folders/', '#folders',
+        'drive.google.com/drive/folders',
+        'dropbox.com/sh/', 'onedrive.live.com/?id=',
+        '/sh/', '/folder/'
+    ]
+    return any(indicator in url for indicator in folder_indicators)
+
 # ==================== DATABASE INITIALIZATION ====================
 def init_database():
     try:
@@ -252,6 +262,16 @@ def init_database():
             db.engine.dispose()
             db.engine.connect()
             db.create_all()
+            
+            try:
+                with db.engine.connect() as conn:
+                    conn.execute(text('ALTER TABLE items ADD COLUMN link_url TEXT'))
+                    conn.commit()
+                print("✅ Added link_url column to items table", file=sys.stderr)
+            except Exception as e:
+                if "duplicate column" not in str(e).lower():
+                    print(f"Note: {e}", file=sys.stderr)
+            
             print("✅ Database initialized successfully", file=sys.stderr)
             return True
     except Exception as e:
@@ -286,7 +306,6 @@ def simple_health():
 # ==================== OWNER IMAGE ROUTE ====================
 @app.route('/owner-image')
 def owner_image():
-    """Serve owner image from templates folder"""
     try:
         image_path = os.path.join(app.root_path, 'templates', 'owner.jpg')
         if os.path.exists(image_path):
@@ -342,7 +361,6 @@ def admin_dashboard(folder_id=None):
         total_folders = Item.query.filter_by(type='folder').count()
         total_downloads = Download.query.count()
         
-        # Users data
         users_data = db.session.query(
             User.id, User.pin, User.created_at, User.is_active,
             db.func.coalesce(db.func.count(DeviceLog.id), 0).label('device_count')
@@ -358,7 +376,6 @@ def admin_dashboard(folder_id=None):
             'device_count': u[4]
         } for u in users_data]
 
-        # Folder navigation
         current_folder = None
         if folder_id:
             current_folder = Item.query.get(folder_id)
@@ -366,7 +383,6 @@ def admin_dashboard(folder_id=None):
                 flash('Invalid folder', 'error')
                 return redirect(url_for('admin_dashboard'))
         
-        # Items inside current folder
         items = Item.query.filter_by(parent_id=folder_id).order_by(Item.type.desc(), Item.name).all()
         items_list = [{
             'id': item.id,
@@ -378,14 +394,13 @@ def admin_dashboard(folder_id=None):
             'parent_id': item.parent_id,
             'mime_type': item.mime_type or '',
             'icon': 'fa-folder' if item.type == 'folder' else get_file_icon(item.mime_type),
-            'thumbnail_path': item.thumbnail_path
+            'thumbnail_path': item.thumbnail_path,
+            'link_url': item.link_url
         } for item in items]
 
-        # All folders for dropdowns
         all_folders = Item.query.filter_by(type='folder').order_by(Item.name).all()
         folders_list = [{'id': f.id, 'name': f.name, 'parent_id': f.parent_id} for f in all_folders]
 
-        # Breadcrumb
         breadcrumb = []
         if folder_id:
             temp_id = folder_id
@@ -419,7 +434,6 @@ def admin_dashboard(folder_id=None):
 def create_pin():
     folder_id = request.form.get('folder_id', '')
     
-    # Generate a clean, readable PIN
     pin = ''.join(secrets.choice('ABCDEFGHJKLMNPQRSTUVWXYZ23456789') for _ in range(8))
     
     user = User(pin=pin, is_active=True)
@@ -434,7 +448,6 @@ def create_pin():
         logger.error(f"Failed to create PIN: {e}")
         flash('❌ Failed to create PIN. Please try again.', 'error')
     
-    # Redirect back to the same folder
     if folder_id and folder_id != 'None' and folder_id != '':
         return redirect(url_for('admin_dashboard', folder_id=int(folder_id)))
     else:
@@ -512,8 +525,8 @@ def upload_item():
     parent_id = request.form.get('parent_id')
     file = request.files.get('file')
     picture = request.files.get('picture')
+    link_url = request.form.get('link_url')
     
-    # Handle parent_id properly
     if not parent_id or parent_id == '' or parent_id == 'None':
         parent_id = None
     else:
@@ -571,8 +584,47 @@ def upload_item():
         db.session.add(item)
         db.session.commit()
         flash(f'📄 File "{name}" uploaded successfully!', 'success')
+    
+    elif item_type == 'link' and link_url and link_url.strip():
+        if not link_url.startswith(('http://', 'https://')):
+            flash('Please enter a valid URL starting with http:// or https://', 'error')
+            return redirect(url_for('admin_dashboard', folder_id=parent_id))
+        
+        if is_folder_link(link_url):
+            flash('⚠️ This appears to be a folder link. Please use direct file links only.', 'error')
+            return redirect(url_for('admin_dashboard', folder_id=parent_id))
+        
+        thumbnail_path = None
+        if picture and picture.filename:
+            thumb_filename = f"thumb_{secrets.token_hex(16)}.jpg"
+            thumb_full_path = os.path.join(app.config['THUMBNAIL_FOLDER'], thumb_filename)
+            picture.save(thumb_full_path)
+            thumbnail_path = thumb_full_path
+        
+        file_size = None
+        mime_type = None
+        try:
+            head_response = requests.head(link_url, timeout=10, allow_redirects=True)
+            file_size = int(head_response.headers.get('content-length', 0)) if head_response.headers.get('content-length') else None
+            mime_type = head_response.headers.get('content-type', None)
+        except:
+            pass
+        
+        item = Item(
+            name=name.strip(), 
+            type='file',
+            link_url=link_url,
+            file_path=None,
+            thumbnail_path=thumbnail_path, 
+            parent_id=parent_id, 
+            size=file_size, 
+            mime_type=mime_type
+        )
+        db.session.add(item)
+        db.session.commit()
+        flash(f'🔗 Link file "{name}" added successfully!', 'success')
     else:
-        flash('Please provide a file for file type upload', 'error')
+        flash('Please provide a file or valid URL', 'error')
     
     return redirect(url_for('admin_dashboard', folder_id=parent_id))
 
@@ -585,7 +637,6 @@ def delete_item(item_id):
     if item:
         name = item.name
         if item.type == 'folder':
-            # Delete all children recursively
             def delete_children(folder_item):
                 for child in folder_item.children:
                     if child.type == 'folder':
@@ -617,7 +668,6 @@ def move_item(item_id):
     new_parent_id = request.form.get('new_parent_id')
     current_folder_id = request.form.get('current_folder_id')
     
-    # Handle new_parent_id properly
     if not new_parent_id or new_parent_id == '' or new_parent_id == 'None':
         new_parent_id = None
     else:
@@ -686,10 +736,8 @@ def update_permissions():
         user_id = int(user_id)
         restricted_items = [int(x) for x in restricted_items_str.split(',') if x.strip()]
         
-        # Delete existing permissions for this user
         UserItemPermission.query.filter_by(user_id=user_id).delete()
         
-        # Add new restricted items
         for item_id in restricted_items:
             db.session.add(UserItemPermission(user_id=user_id, item_id=item_id, can_access=False))
         
@@ -800,10 +848,35 @@ def download_item(item_id):
         flash('Item not found', 'error')
         return redirect(url_for('user_vault'))
     
-    # Log download
     download = Download(user_id=user_id, item_id=item_id)
     db.session.add(download)
     db.session.commit()
+    
+    if item.link_url and not item.file_path:
+        try:
+            response = requests.get(item.link_url, stream=True, timeout=30, allow_redirects=True)
+            response.raise_for_status()
+            
+            filename = item.original_filename or item.name
+            content_disposition = response.headers.get('content-disposition')
+            if content_disposition and 'filename=' in content_disposition:
+                filename = content_disposition.split('filename=')[-1].strip('"\'')
+            
+            def generate():
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        yield chunk
+            
+            return send_file(
+                generate(),
+                as_attachment=True,
+                download_name=filename,
+                mimetype=response.headers.get('content-type', item.mime_type or 'application/octet-stream')
+            )
+        except Exception as e:
+            logger.error(f"Failed to download from link URL {item.link_url}: {e}")
+            flash('Failed to download file from external source. Please try again later.', 'error')
+            return redirect(url_for('user_vault', folder=item.parent_id))
     
     if item.type == 'folder':
         zip_buffer = BytesIO()
