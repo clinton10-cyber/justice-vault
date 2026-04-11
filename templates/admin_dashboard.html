@@ -463,6 +463,7 @@
     .file-icon .fa-file-video { color: #8b5cf6; }
     .file-icon .fa-file-audio { color: #f59e0b; }
     .file-icon .fa-file-archive { color: #a78bfa; }
+    .file-icon .fa-link { color: #3b82f6; }
     .file-icon .fa-file { color: #64748b; }
     
     .file-name {
@@ -871,6 +872,32 @@
         background: linear-gradient(135deg, #f8fafc, #ffffff);
     }
     
+    .url-input-group {
+        background: var(--bg-tertiary);
+        border-radius: 18px;
+        padding: 4px;
+        border: 2px solid var(--border-color);
+        transition: all 0.2s;
+    }
+    
+    .url-input-group:focus-within {
+        border-color: var(--accent-blue);
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+    }
+    
+    .url-input-group input {
+        width: 100%;
+        padding: 14px 16px;
+        background: transparent;
+        border: none;
+        color: var(--text-primary);
+        font-size: 14px;
+    }
+    
+    .url-input-group input:focus {
+        outline: none;
+    }
+    
     .modal-actions {
         display: flex;
         gap: 12px;
@@ -942,7 +969,10 @@
                 <i class="fas fa-folder-plus"></i> <span>New Folder</span>
             </button>
             <button onclick="showUploadModal()" class="btn btn-primary">
-                <i class="fas fa-cloud-upload-alt"></i> <span>Upload</span>
+                <i class="fas fa-cloud-upload-alt"></i> <span>Upload File</span>
+            </button>
+            <button onclick="showLinkUploadModal()" class="btn btn-warning">
+                <i class="fas fa-link"></i> <span>Add Link</span>
             </button>
             <form method="POST" action="{{ url_for('create_pin') }}" style="display: inline;">
                 <input type="hidden" name="folder_id" value="{{ folder_id }}">
@@ -1040,6 +1070,8 @@
                     <div class="file-icon" {% if item.type == 'folder' %}onclick="navigateToFolder({{ item.id }})"{% endif %}>
                         {% if item.type == 'folder' %}
                             <i class="fas fa-folder"></i>
+                        {% elif item.link_url %}
+                            <i class="fas fa-link"></i>
                         {% elif 'pdf' in item.mime_type|lower %}
                             <i class="fas fa-file-pdf"></i>
                         {% elif 'image' in item.mime_type|lower %}
@@ -1058,6 +1090,11 @@
                         <p title="{{ item.name }}">{{ item.name }}</p>
                         {% if item.size_formatted %}
                         <div class="file-size">{{ item.size_formatted }}</div>
+                        {% endif %}
+                        {% if item.link_url %}
+                        <div class="file-size" style="color: var(--accent-blue);">
+                            <i class="fas fa-link"></i> External Link
+                        </div>
                         {% endif %}
                     </div>
                     <div class="file-actions">
@@ -1083,13 +1120,16 @@
                     <div class="empty-state">
                         <i class="fas fa-cloud-upload-alt"></i>
                         <h3>This folder is empty</h3>
-                        <p>Create a folder or upload files to get started</p>
+                        <p>Create a folder, upload files, or add external links to get started</p>
                         <div class="empty-actions">
                             <button onclick="showNewFolderModal()" class="btn btn-secondary">
                                 <i class="fas fa-folder-plus"></i> New Folder
                             </button>
                             <button onclick="showUploadModal()" class="btn btn-primary">
                                 <i class="fas fa-cloud-upload-alt"></i> Upload File
+                            </button>
+                            <button onclick="showLinkUploadModal()" class="btn btn-warning">
+                                <i class="fas fa-link"></i> Add Link
                             </button>
                         </div>
                     </div>
@@ -1231,6 +1271,55 @@
     </div>
 </div>
 
+<!-- Link Upload Modal -->
+<div id="linkUploadModal" class="modal-overlay" onclick="if(event.target === this) this.style.display='none'">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width: 520px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-link"></i> Add External Link</h3>
+            <button class="modal-close" onclick="document.getElementById('linkUploadModal').style.display='none'">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('upload_item') }}" enctype="multipart/form-data">
+            <input type="hidden" name="parent_id" value="{{ folder_id }}">
+            <input type="hidden" name="type" value="link">
+            
+            <div class="form-group">
+                <label>Display Name</label>
+                <input type="text" name="name" placeholder="Enter name for this download" required>
+                <small style="color: var(--text-muted); font-size: 11px; margin-top: 6px; display: block;">
+                    This is what users will see
+                </small>
+            </div>
+            
+            <div class="form-group">
+                <label>Download URL</label>
+                <div class="url-input-group">
+                    <input type="url" name="link_url" placeholder="https://example.com/file.zip" required>
+                </div>
+                <small style="color: var(--text-muted); font-size: 11px; margin-top: 6px; display: block;">
+                    <i class="fas fa-info-circle"></i> Users will download directly from this URL without seeing it
+                </small>
+            </div>
+            
+            <div class="form-group">
+                <label>Preview Image (Optional)</label>
+                <input type="file" name="picture" accept="image/*">
+                <small style="color: var(--text-muted); font-size: 11px; margin-top: 6px; display: block;">
+                    Optional thumbnail image for this file
+                </small>
+            </div>
+            
+            <div class="modal-actions">
+                <button type="submit" class="btn btn-warning">
+                    <i class="fas fa-link"></i> Add Link File
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('linkUploadModal').style.display='none'">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- New Folder Modal -->
 <div id="newFolderModal" class="modal-overlay" onclick="if(event.target === this) this.style.display='none'">
     <div class="modal" onclick="event.stopPropagation()">
@@ -1316,6 +1405,10 @@
     
     function showNewFolderModal() {
         document.getElementById('newFolderModal').style.display = 'flex';
+    }
+    
+    function showLinkUploadModal() {
+        document.getElementById('linkUploadModal').style.display = 'flex';
     }
     
     function navigateToFolder(folderId) {
