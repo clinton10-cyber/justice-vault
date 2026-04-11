@@ -77,6 +77,10 @@
             background: #ef4444;
             color: white;
         }
+        .toast.info {
+            background: #3b82f6;
+            color: white;
+        }
         @keyframes slideIn {
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
@@ -87,6 +91,31 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
+        }
+
+        /* Loading spinner for download button */
+        .download-btn {
+            display: block;
+            text-align: center;
+            padding: 10px;
+            background: #4f46e5;
+            border-radius: 40px;
+            text-decoration: none;
+            color: white;
+            font-size: 14px;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+        }
+        .download-btn:hover {
+            background: #4338ca;
+            transform: translateY(-1px);
+        }
+        .download-btn:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+            transform: none;
         }
     </style>
 </head>
@@ -244,6 +273,8 @@
                     <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 6px; color: #1e293b;">{{ item.name }}</h3>
                     {% if item.size %}
                     <p style="color: #64748b; font-size: 12px; margin-bottom: 14px;">{{ (item.size / 1024 / 1024)|round(2) }} MB</p>
+                    {% else %}
+                    <p style="color: #64748b; font-size: 12px; margin-bottom: 14px;">External link</p>
                     {% endif %}
                     
                     <!-- Action -->
@@ -252,9 +283,9 @@
                             <i class="fas fa-folder-open"></i> Open
                         </a>
                     {% elif item.can_access %}
-                        <a href="{{ url_for('download_item', item_id=item.id) }}" style="display: block; text-align: center; padding: 10px; background: #4f46e5; border-radius: 40px; text-decoration: none; color: white; font-size: 14px;">
+                        <button class="download-btn" onclick="handleDownload({{ item.id }}, '{{ item.name|escapejs }}')">
                             <i class="fas fa-download"></i> Download
-                        </a>
+                        </button>
                     {% else %}
                         <div style="display: block; text-align: center; padding: 10px; background: #fef2f2; border-radius: 40px; color: #dc2626; font-size: 14px;">
                             <i class="fas fa-lock"></i> No access
@@ -295,29 +326,133 @@
 </div>
 {% endif %}
 
-<!-- Toast messages -->
+<!-- Toast and Download Handler Script -->
 <script>
+    // Escape JavaScript strings to prevent XSS
+    function escapeJs(str) {
+        if (!str) return '';
+        return str.replace(/\\/g, '\\\\')
+                  .replace(/'/g, "\\'")
+                  .replace(/"/g, '\\"')
+                  .replace(/\n/g, '\\n')
+                  .replace(/\r/g, '\\r');
+    }
+    
+    // Show toast notification
     function showToast(message, type) {
         var container = document.getElementById('toastContainer');
         if (!container) return;
         var toast = document.createElement('div');
         toast.className = 'toast ' + type;
-        toast.innerHTML = '<i class="fas ' + (type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle') + '"></i><span>' + message + '</span>';
+        var icon = '';
+        if (type === 'success') icon = '<i class="fas fa-check-circle"></i>';
+        else if (type === 'error') icon = '<i class="fas fa-exclamation-circle"></i>';
+        else icon = '<i class="fas fa-info-circle"></i>';
+        toast.innerHTML = icon + '<span>' + message + '</span>';
         container.appendChild(toast);
         setTimeout(function() {
             toast.style.opacity = '0';
-            setTimeout(function() { toast.remove(); }, 200);
-        }, 3500);
+            setTimeout(function() { toast.remove(); }, 300);
+        }, 4000);
     }
     
+    // Handle download with AJAX
+    function handleDownload(itemId, itemName) {
+        // Disable button and show loading state
+        var buttons = document.querySelectorAll('.download-btn');
+        var currentBtn = null;
+        for (var i = 0; i < buttons.length; i++) {
+            if (buttons[i].innerHTML.indexOf('Download') > -1 && !buttons[i].disabled) {
+                currentBtn = buttons[i];
+                break;
+            }
+        }
+        
+        if (currentBtn) {
+            currentBtn.disabled = true;
+            currentBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Starting...';
+        }
+        
+        // Show info toast
+        showToast('Starting download for ' + itemName + '...', 'info');
+        
+        // Make AJAX request to get download URL
+        fetch('/download/' + itemId)
+            .then(function(response) {
+                // Check if response is JSON or file
+                var contentType = response.headers.get('content-type');
+                if (contentType && contentType.indexOf('application/json') !== -1) {
+                    return response.json().then(function(data) {
+                        if (data.success && data.is_link) {
+                            // Open in a new background tab
+                            var downloadWindow = window.open(data.download_url, '_blank');
+                            showToast('✅ Download started for ' + itemName + '! Check your downloads folder.', 'success');
+                            // Close the new tab after 3 seconds (won't affect download)
+                            if (downloadWindow) {
+                                setTimeout(function() {
+                                    downloadWindow.close();
+                                }, 3000);
+                            }
+                        } else if (data.success) {
+                            showToast('✅ Download started for ' + itemName + '!', 'success');
+                        } else {
+                            showToast('❌ Error: ' + (data.error || 'Unknown error'), 'error');
+                        }
+                        // Re-enable button
+                        if (currentBtn) {
+                            currentBtn.disabled = false;
+                            currentBtn.innerHTML = '<i class="fas fa-download"></i> Download';
+                        }
+                    });
+                } else {
+                    // This is a file download (regular file or zip)
+                    return response.blob().then(function(blob) {
+                        var url = window.URL.createObjectURL(blob);
+                        var a = document.createElement('a');
+                        a.href = url;
+                        // Get filename from Content-Disposition header or use item name
+                        var disposition = response.headers.get('content-disposition');
+                        var filename = itemName;
+                        if (disposition && disposition.indexOf('filename=') !== -1) {
+                            var matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+                            if (matches && matches[1]) {
+                                filename = matches[1].replace(/['"]/g, '');
+                            }
+                        }
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                        showToast('✅ Download started for ' + filename + '!', 'success');
+                        // Re-enable button
+                        if (currentBtn) {
+                            currentBtn.disabled = false;
+                            currentBtn.innerHTML = '<i class="fas fa-download"></i> Download';
+                        }
+                    });
+                }
+            })
+            .catch(function(error) {
+                console.error('Download error:', error);
+                showToast('❌ Failed to start download. Please try again.', 'error');
+                // Re-enable button
+                if (currentBtn) {
+                    currentBtn.disabled = false;
+                    currentBtn.innerHTML = '<i class="fas fa-download"></i> Download';
+                }
+            });
+    }
+    
+    // Display flashed messages
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
-                showToast('{{ message }}', '{{ category }}');
+                showToast('{{ message|escapejs }}', '{{ category }}');
             {% endfor %}
         {% endif %}
     {% endwith %}
 </script>
 
 </body>
-</html>
+                    </html> 
