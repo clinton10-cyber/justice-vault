@@ -100,13 +100,19 @@ logger = logging.getLogger(__name__)
 
 # ==================== DATABASE MODELS ====================
 class User(db.Model):
-    __tablename__ = 'users'
+    __tablename__ = 'users' el
+    ku j
+    hl ll
+    y
+
+    l h.k
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     pin: Mapped[str] = mapped_column(String(20), unique=True, nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     last_login: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    device_logs = db.relationship('DeviceLog', backref='user', lazy='dynamic', cascade='all, delete-orphan')
+    device_logs = db.relationship('DeviceLog', backref='user', lazy='dynamic', ca
+                                  MI..nscade='all, delete-orphan')
     downloads = db.relationship('Download', backref='user', lazy='dynamic', cascade='all, delete-orphan')
     permissions = db.relationship('UserItemPermission', backref='user', lazy='dynamic', cascade='all, delete-orphan')
 
