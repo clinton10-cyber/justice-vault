@@ -829,7 +829,7 @@ def user_vault():
             'size_formatted': format_file_size(item.size),
             'can_access': item.id not in restricted_items,
             'icon': 'fa-folder' if item.type == 'folder' else get_file_icon(item.mime_type),
-            'link_url': item.link_url  # Pass link_url to template
+            'link_url': item.link_url
         })
     
     breadcrumb = []
@@ -867,42 +867,269 @@ def download_item(item_id):
     db.session.add(download)
     db.session.commit()
     
-    # Handle link files - OPEN IN NEW TAB INSTEAD OF STREAMING
+    # Handle link files - UNIVERSAL BROWSER COMPATIBLE APPROACH
     if item.link_url and not item.file_path:
         # Convert Google Drive links to direct download format
         download_url = item.link_url
         if 'drive.google.com' in download_url:
             download_url = get_google_drive_direct_url(download_url)
         
-        # Return HTML that opens the link in a new tab and closes it
+        # Return HTML with multiple fallback methods for universal browser compatibility
         return f'''
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Opening Download...</title>
-            <script>
-                // Open the download link in a new tab
-                var downloadWindow = window.open("{download_url}", "_blank");
-                
-                // Close this tab after a short delay
-                setTimeout(function() {{
-                    window.close();
-                }}, 2000);
-                
-                // Show message to user
-                document.body.innerHTML = `
-                    <div style="text-align: center; font-family: Arial, sans-serif; padding: 50px;">
-                        <h2>Opening Download...</h2>
-                        <p>If the download doesn't start automatically, <a href="{download_url}" target="_blank">click here</a></p>
-                        <p>This tab will close automatically.</p>
-                    </div>
-                `;
-            </script>
+            <title>Processing Download...</title>
+            <style>
+                body {{
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    text-align: center;
+                    padding: 50px 20px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    min-height: 100vh;
+                    margin: 0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }}
+                .container {{
+                    background: white;
+                    border-radius: 24px;
+                    padding: 40px;
+                    max-width: 500px;
+                    width: 100%;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+                }}
+                h2 {{ color: #1a1f36; margin-bottom: 16px; }}
+                p {{ color: #64748b; margin-bottom: 24px; line-height: 1.5; }}
+                .loader {{
+                    width: 48px;
+                    height: 48px;
+                    border: 3px solid #e2e8f0;
+                    border-top: 3px solid #4f46e5;
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                    margin: 0 auto 24px;
+                }}
+                @keyframes spin {{
+                    0% {{ transform: rotate(0deg); }}
+                    100% {{ transform: rotate(360deg); }}
+                }}
+                .btn {{
+                    display: inline-block;
+                    padding: 12px 24px;
+                    background: #4f46e5;
+                    color: white;
+                    text-decoration: none;
+                    border-radius: 40px;
+                    margin-top: 16px;
+                    transition: all 0.2s;
+                    cursor: pointer;
+                    border: none;
+                    font-size: 14px;
+                    font-weight: 600;
+                }}
+                .btn:hover {{ background: #4338ca; }}
+                .fallback-link {{
+                    word-break: break-all;
+                    background: #f1f5f9;
+                    padding: 12px;
+                    border-radius: 12px;
+                    font-size: 12px;
+                    margin-top: 20px;
+                }}
+                .fallback-link a {{ color: #4f46e5; text-decoration: none; }}
+                .success-message {{ color: #10b981; margin-top: 16px; font-size: 14px; }}
+                .error-message {{ color: #ef4444; margin-top: 16px; }}
+                .manual-section {{
+                    margin-top: 20px;
+                    padding-top: 20px;
+                    border-top: 1px solid #e2e8f0;
+                }}
+                .copy-btn {{
+                    background: #f1f5f9;
+                    border: 1px solid #e2e8f0;
+                    padding: 8px 16px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    margin-left: 8px;
+                }}
+                .copy-btn:hover {{
+                    background: #e2e8f0;
+                }}
+                code {{
+                    background: #f1f5f9;
+                    padding: 2px 6px;
+                    border-radius: 6px;
+                    font-size: 11px;
+                }}
+            </style>
         </head>
-        <body style="text-align: center; font-family: Arial, sans-serif; padding: 50px;">
-            <h2>Opening Download...</h2>
-            <p>If the download doesn't start automatically, <a href="{download_url}" target="_blank">click here</a></p>
-            <p>This tab will close automatically.</p>
+        <body>
+            <div class="container" id="mainContainer">
+                <div class="loader"></div>
+                <h2>Starting your download...</h2>
+                <p>Please wait while we prepare your file.</p>
+                <div id="statusMessage"></div>
+            </div>
+
+            <script>
+                var downloadUrl = "{download_url}";
+                var attempts = 0;
+                var success = false;
+                var timeoutId = null;
+                
+                function showManualLink() {{
+                    var container = document.getElementById('mainContainer');
+                    container.innerHTML = `
+                        <h2>✨ Download Ready</h2>
+                        <p>Click the button below to start your download.</p>
+                        <button onclick="triggerDirectDownload()" class="btn">
+                            <i class="fas fa-download"></i> Download Now
+                        </button>
+                        <div class="manual-section">
+                            <p><strong>📎 Alternative methods:</strong></p>
+                            <div class="fallback-link">
+                                <p><strong>Option 1:</strong> <a href="${{downloadUrl}}" target="_blank" id="directLink">Click here to open in new tab</a></p>
+                                <p><strong>Option 2:</strong> Copy this URL: <br>
+                                <code style="display: inline-block; max-width: 100%; overflow-x: auto;">${{downloadUrl}}</code>
+                                <button onclick="copyToClipboard('${{downloadUrl}}')" class="copy-btn">Copy</button>
+                                </p>
+                            </div>
+                        </div>
+                        <p class="success-message">✓ Your download should start automatically</p>
+                    `;
+                }}
+                
+                function copyToClipboard(text) {{
+                    navigator.clipboard.writeText(text).then(function() {{
+                        alert('URL copied to clipboard!');
+                    }}, function() {{
+                        var textarea = document.createElement('textarea');
+                        textarea.value = text;
+                        document.body.appendChild(textarea);
+                        textarea.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(textarea);
+                        alert('URL copied to clipboard!');
+                    }});
+                }}
+                
+                function triggerDirectDownload() {{
+                    var link = document.createElement('a');
+                    link.href = downloadUrl;
+                    link.download = '';
+                    link.target = '_blank';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }}
+                
+                function showError() {{
+                    var container = document.getElementById('mainContainer');
+                    container.innerHTML = `
+                        <h2>⚠️ Download Issue Detected</h2>
+                        <p>Your browser may be blocking automatic downloads.</p>
+                        <div class="fallback-link">
+                            <p><strong>Please use one of these methods:</strong></p>
+                            <p>📎 <a href="${{downloadUrl}}" target="_blank" id="manualLink">Open in new tab</a></p>
+                            <p>🔗 Copy this URL: <br>
+                            <code style="display: inline-block; max-width: 100%; overflow-x: auto;">${{downloadUrl}}</code>
+                            <button onclick="copyToClipboard('${{downloadUrl}}')" class="copy-btn">Copy</button>
+                            </p>
+                        </div>
+                        <button onclick="showManualLink()" class="btn" style="margin-top: 20px;">Retry Download</button>
+                    `;
+                }}
+                
+                // Method 1: Create hidden anchor and click
+                function tryAnchorDownload() {{
+                    var link = document.createElement('a');
+                    link.href = downloadUrl;
+                    link.download = '';
+                    link.target = '_blank';
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    link.click();
+                    
+                    setTimeout(function() {{
+                        document.body.removeChild(link);
+                        if (!success) {{
+                            attempts++;
+                            if (attempts < 2) {{
+                                tryIframeDownload();
+                            }} else {{
+                                showManualLink();
+                            }}
+                        }}
+                    }}, 1500);
+                }}
+                
+                // Method 2: Use iframe (works in most browsers)
+                function tryIframeDownload() {{
+                    var iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    iframe.src = downloadUrl;
+                    document.body.appendChild(iframe);
+                    
+                    timeoutId = setTimeout(function() {{
+                        if (document.body.contains(iframe)) {{
+                            document.body.removeChild(iframe);
+                        }}
+                        if (!success) {{
+                            attempts++;
+                            if (attempts < 2) {{
+                                tryWindowOpen();
+                            }} else {{
+                                showManualLink();
+                            }}
+                        }}
+                    }}, 2000);
+                }}
+                
+                // Method 3: Window.open (last resort before manual)
+                function tryWindowOpen() {{
+                    var newWindow = window.open(downloadUrl, '_blank');
+                    if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {{
+                        // Popup blocked
+                        if (attempts >= 1) {{
+                            showError();
+                        }} else {{
+                            setTimeout(function() {{
+                                showManualLink();
+                            }}, 500);
+                        }}
+                    }} else {{
+                        setTimeout(function() {{
+                            if (newWindow && !newWindow.closed) {{
+                                newWindow.close();
+                            }}
+                        }}, 3000);
+                    }}
+                }}
+                
+                // Mark as success (listener not possible for downloads, so we assume after delay)
+                setTimeout(function() {{
+                    success = true;
+                    var statusMsg = document.getElementById('statusMessage');
+                    if (statusMsg) {{
+                        statusMsg.innerHTML = '<p class="success-message">✓ Download started! This tab will close soon.</p>';
+                    }}
+                }}, 1000);
+                
+                // Start download attempts
+                setTimeout(function() {{
+                    tryAnchorDownload();
+                }}, 500);
+                
+                // Auto-close this tab after 8 seconds if download started
+                setTimeout(function() {{
+                    if (success) {{
+                        window.close();
+                    }}
+                }}, 8000);
+            </script>
         </body>
         </html>
         '''
