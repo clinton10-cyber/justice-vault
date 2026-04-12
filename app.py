@@ -342,6 +342,11 @@ def owner_image():
         logger.error(f"Error serving owner image: {e}")
         return '', 404
 
+# ==================== FAVICON ROUTE ====================
+@app.route('/favicon.ico')
+def favicon():
+    return owner_image()
+
 # ==================== THUMBNAIL SERVING ====================
 @app.route('/thumbnail/<path:filename>')
 def serve_thumbnail(filename):
