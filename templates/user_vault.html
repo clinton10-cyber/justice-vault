@@ -100,11 +100,108 @@
             font-size: 14px;
             cursor: not-allowed;
         }
+        
+        /* Restricted folder card style */
+        .item-card.restricted {
+            opacity: 0.7;
+            filter: grayscale(0.2);
+        }
+        
+        .item-card.restricted:hover {
+            transform: none;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        }
+        
+        /* Access denied modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+        
+        .access-denied-modal {
+            background: white;
+            border-radius: 28px;
+            padding: 32px;
+            max-width: 420px;
+            width: 100%;
+            text-align: center;
+            animation: modalSlideIn 0.3s ease;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        .access-denied-modal i {
+            font-size: 64px;
+            color: #ef4444;
+            margin-bottom: 20px;
+        }
+        
+        .access-denied-modal h3 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 12px;
+        }
+        
+        .access-denied-modal p {
+            color: #64748b;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+        
+        .access-denied-modal button {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 40px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .access-denied-modal button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
     </style>
 </head>
 <body>
 
 <div class="toast-container" id="toastContainer"></div>
+
+<!-- Access Denied Modal -->
+<div id="accessDeniedModal" class="modal-overlay" onclick="closeAccessDeniedModal()">
+    <div class="access-denied-modal" onclick="event.stopPropagation()">
+        <i class="fas fa-lock"></i>
+        <h3>Access Denied</h3>
+        <p id="deniedMessage">You don't have permission to access this folder. Please contact the administrator.</p>
+        <button onclick="closeAccessDeniedModal()">
+            <i class="fas fa-check"></i> Got it
+        </button>
+    </div>
+</div>
 
 {% if not logged_in %}
 
@@ -189,12 +286,12 @@
                 </a>
             </div>
             
-            <!-- Breadcrumb -->
+            <!-- Breadcrumb - Show only accessible folders in breadcrumb -->
             <div style="margin-top: 20px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 13px;">
                 <a href="{{ url_for('user_vault') }}" style="color: #4f46e5; text-decoration: none;">Home</a>
                 {% for crumb in breadcrumb %}
                     <i class="fas fa-chevron-right" style="font-size: 10px; color: #cbd5e1;"></i>
-                    <a href="{{ url_for('user_vault', folder=crumb.id) }}" style="color: #4f46e5; text-decoration: none;">{{ crumb.name }}</a>
+                    <span style="color: #64748b;">{{ crumb.name }}</span>
                 {% endfor %}
             </div>
         </div>
@@ -234,15 +331,21 @@
         {% if items %}
         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px;">
             {% for item in items %}
-            <div class="item-card" style="background: white; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+            <div class="item-card {% if not item.can_access and item.type == 'folder' %}restricted{% endif %}" style="background: white; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
                 
                 <!-- Preview area -->
-                <div style="background: #f8fafc; height: 160px; display: flex; align-items: center; justify-content: center;">
+                <div style="background: #f8fafc; height: 160px; display: flex; align-items: center; justify-content: center; position: relative;">
+                    {% if not item.can_access and item.type == 'folder' %}
+                        <div style="position: absolute; top: 12px; right: 12px; background: #ef4444; color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;">
+                            <i class="fas fa-lock"></i> Restricted
+                        </div>
+                    {% endif %}
+                    
                     {% if item.thumbnail_url %}
                         <img src="{{ item.thumbnail_url }}" style="width: 100%; height: 100%; object-fit: cover;">
                     {% elif item.type == 'folder' %}
-                        <div style="background: #fef3c7; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
-                            <i class="fas fa-folder-open" style="font-size: 60px; color: #d97706;"></i>
+                        <div style="background: {% if item.can_access %}#fef3c7{% else %}#e2e8f0{% endif %}; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-folder-open" style="font-size: 60px; color: {% if item.can_access %}#d97706{% else %}#94a3b8{% endif %};"></i>
                         </div>
                     {% else %}
                         <div style="background: #e0e7ff; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
@@ -258,15 +361,21 @@
                     <p style="color: #64748b; font-size: 12px; margin-bottom: 14px;">{{ (item.size / 1024 / 1024)|round(2) }} MB</p>
                     {% elif item.link_url %}
                     <p style="color: #64748b; font-size: 11px; margin-bottom: 14px;">
-                        <i class="fas fa-pen"></i> pin
+                        <i class="fa-user-edit"></i> product file from sir justice
                     </p>
                     {% endif %}
                     
                     <!-- Action -->
                     {% if item.type == 'folder' %}
-                        <a href="{{ url_for('user_vault', folder=item.id) }}" style="display: block; text-align: center; padding: 10px; background: #f1f5f9; border-radius: 40px; text-decoration: none; color: #334155; font-size: 14px;">
-                            <i class="fas fa-folder-open"></i> Open
-                        </a>
+                        {% if item.can_access %}
+                            <a href="{{ url_for('user_vault', folder=item.id) }}" style="display: block; text-align: center; padding: 10px; background: #f1f5f9; border-radius: 40px; text-decoration: none; color: #334155; font-size: 14px;">
+                                <i class="fas fa-folder-open"></i> Open
+                            </a>
+                        {% else %}
+                            <button onclick="showAccessDenied('{{ item.name }}')" style="display: block; width: 100%; text-align: center; padding: 10px; background: #fef2f2; border-radius: 40px; color: #dc2626; font-size: 14px; border: none; cursor: pointer;">
+                                <i class="fas fa-lock"></i> No Access
+                            </button>
+                        {% endif %}
                     {% elif item.can_access %}
                         <a href="{{ url_for('download_item', item_id=item.id) }}" target="_blank" style="display: block; text-align: center; padding: 10px; background: #4f46e5; border-radius: 40px; text-decoration: none; color: white; font-size: 14px;">
                             <i class="fas fa-download"></i> Download
@@ -311,8 +420,28 @@
 </div>
 {% endif %}
 
-<!-- Toast messages -->
 <script>
+    // Show access denied modal
+    function showAccessDenied(folderName) {
+        const modal = document.getElementById('accessDeniedModal');
+        const messageEl = document.getElementById('deniedMessage');
+        messageEl.innerHTML = `You don't have permission to access "<strong>${escapeHtml(folderName)}</strong>".<br><br>Please contact the administrator to request access.`;
+        modal.style.display = 'flex';
+    }
+    
+    // Close access denied modal
+    function closeAccessDeniedModal() {
+        document.getElementById('accessDeniedModal').style.display = 'none';
+    }
+    
+    // Escape HTML to prevent XSS
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Toast message function
     function showToast(message, type) {
         var container = document.getElementById('toastContainer');
         if (!container) return;
@@ -326,6 +455,14 @@
         }, 3500);
     }
     
+    // Close modal on escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeAccessDeniedModal();
+        }
+    });
+    
+    // Flash messages from server
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
