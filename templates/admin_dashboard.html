@@ -583,7 +583,7 @@
     
     @media (min-width: 768px) {
         .bottom-panel {
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1.2fr;
         }
     }
     
@@ -619,7 +619,7 @@
     
     .panel-body {
         padding: 20px;
-        max-height: 400px;
+        max-height: 500px;
         overflow-y: auto;
     }
     
@@ -703,39 +703,144 @@
         color: white; 
     }
     
-    /* Permission Form */
-    .perm-form-group {
-        margin-bottom: 20px;
-    }
-    
-    .perm-form-group label {
-        display: block;
-        color: var(--text-primary);
-        font-size: 13px;
-        font-weight: 600;
-        margin-bottom: 8px;
-    }
-    
-    .perm-form-group select {
-        width: 100%;
-        padding: 12px 16px;
-        background: var(--bg-tertiary);
+    /* Permission Items Grid */
+    .permission-items-container {
+        max-height: 280px;
+        overflow-y: auto;
         border: 2px solid var(--border-color);
-        border-radius: 16px;
-        color: var(--text-primary);
+        border-radius: 20px;
+        background: var(--bg-tertiary);
+        padding: 8px;
+    }
+    
+    .perm-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        margin-bottom: 6px;
+        background: white;
+        border-radius: 14px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 2px solid transparent;
+    }
+    
+    .perm-item:hover {
+        transform: translateX(4px);
+        border-color: var(--accent-blue);
+    }
+    
+    .perm-item-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+    }
+    
+    .perm-item-info i {
+        width: 28px;
+        font-size: 18px;
+    }
+    
+    .perm-item-info i.fa-folder { color: #f59e0b; }
+    .perm-item-info i.fa-file { color: var(--accent-blue); }
+    .perm-item-info i.fa-link { color: var(--accent-cyan); }
+    
+    .perm-item-name {
         font-size: 13px;
+        font-weight: 500;
+        color: var(--text-primary);
+        word-break: break-word;
+    }
+    
+    .perm-item-type {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-left: 8px;
+        padding: 2px 8px;
+        background: var(--bg-tertiary);
+        border-radius: 20px;
+    }
+    
+    .perm-item-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .status-indicator {
+        width: 32px;
+        height: 32px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         transition: all 0.2s;
     }
     
-    .perm-form-group select:focus {
-        outline: none;
-        border-color: var(--accent-blue);
-        background: white;
-        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+    .status-indicator.allowed {
+        background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+        color: #059669;
     }
     
-    .perm-form-group select[multiple] {
-        min-height: 120px;
+    .status-indicator.restricted {
+        background: linear-gradient(135deg, #fee2e2, #fecaca);
+        color: #dc2626;
+    }
+    
+    .perm-badge {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 40px;
+    }
+    
+    .perm-badge.allowed {
+        background: #d1fae5;
+        color: #059669;
+    }
+    
+    .perm-badge.restricted {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+    
+    /* Selected user info */
+    .selected-user-info {
+        background: linear-gradient(135deg, #dbeafe, #ede9fe);
+        padding: 14px 18px;
+        border-radius: 20px;
+        margin-bottom: 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    
+    .selected-user-code {
+        font-family: monospace;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 2px;
+        color: var(--accent-blue);
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 18px;
+    }
+    
+    .btn-sm {
+        padding: 8px 16px;
+        font-size: 12px;
+    }
+    
+    .btn-block {
+        flex: 1;
+        justify-content: center;
     }
     
     .info-note {
@@ -949,6 +1054,33 @@
         .file-actions .btn-icon span {
             display: none;
         }
+        
+        .perm-item {
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .perm-item-status {
+            width: 100%;
+            justify-content: space-between;
+        }
+    }
+    
+    /* Loading indicator */
+    .loading {
+        text-align: center;
+        padding: 20px;
+    }
+    
+    .loading i {
+        font-size: 24px;
+        color: var(--accent-blue);
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
     }
 </style>
 
@@ -1066,7 +1198,7 @@
         <div class="file-grid">
             {% if items %}
                 {% for item in items %}
-                <div class="file-card">
+                <div class="file-card" data-item-id="{{ item.id }}" data-item-name="{{ item.name }}" data-item-type="{{ item.type }}">
                     <div class="file-icon" {% if item.type == 'folder' %}onclick="navigateToFolder({{ item.id }})"{% endif %}>
                         {% if item.type == 'folder' %}
                             <i class="fas fa-folder"></i>
@@ -1205,33 +1337,52 @@
                 </h3>
             </div>
             <div class="panel-body">
-                <form method="POST" action="{{ url_for('update_permissions') }}">
-                    <input type="hidden" name="folder_id" value="{{ folder_id }}">
+                <div id="permissionPanel">
                     <div class="perm-form-group">
                         <label><i class="fas fa-user"></i> Select User</label>
-                        <select name="user_id" required>
+                        <select id="userSelect" onchange="loadUserPermissions()" required>
                             <option value="">Choose user...</option>
                             {% for user in users %}
-                            <option value="{{ user.id }}">{{ user.pin }} {% if not user.is_active %}(Revoked){% endif %}</option>
+                            <option value="{{ user.id }}" data-pin="{{ user.pin }}">{{ user.pin }} {% if not user.is_active %}(Revoked){% endif %}</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="perm-form-group">
-                        <label><i class="fas fa-ban"></i> Restrict Access To</label>
-                        <select name="restricted_items" multiple>
-                            {% for item in items %}
-                            <option value="{{ item.id }}">{{ item.name }} ({{ item.type }})</option>
-                            {% endfor %}
-                        </select>
+                    
+                    <div id="selectedUserInfo" class="selected-user-info" style="display: none;">
+                        <div>
+                            <i class="fas fa-user"></i> Selected User:
+                            <span id="selectedUserPin" class="selected-user-code"></span>
+                        </div>
+                        <div>
+                            <span id="restrictedCount" class="perm-badge allowed">0 restricted</span>
+                        </div>
                     </div>
-                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
-                        <i class="fas fa-save"></i> Update Permissions
-                    </button>
-                    <div class="info-note">
-                        <i class="fas fa-info-circle"></i>
-                        <span>Hold Ctrl/Cmd to select multiple items. Restricted items cannot be accessed.</span>
+                    
+                    <div id="permissionItemsContainer" style="display: none;">
+                        <label><i class="fas fa-ban"></i> Click items to toggle restriction</label>
+                        <div class="info-note" style="margin-bottom: 12px;">
+                            <i class="fas fa-info-circle"></i>
+                            <span><strong>Green</strong> = Access allowed | <strong>Red</strong> = Access restricted. Click any item to toggle.</span>
+                        </div>
+                        <div id="permissionItemsList" class="permission-items-container">
+                            <div class="loading"><i class="fas fa-spinner fa-pulse"></i> Loading items...</div>
+                        </div>
                     </div>
-                </form>
+                    
+                    <div id="noUserSelected" class="info-note" style="text-align: center; justify-content: center;">
+                        <i class="fas fa-user-plus"></i>
+                        <span>Select a user above to manage their permissions</span>
+                    </div>
+                    
+                    <div class="action-buttons" id="actionButtons" style="display: none;">
+                        <button onclick="savePermissions()" class="btn btn-primary btn-block">
+                            <i class="fas fa-save"></i> Save Permissions
+                        </button>
+                        <button onclick="resetPermissions()" class="btn btn-secondary btn-block">
+                            <i class="fas fa-undo"></i> Reset
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1399,6 +1550,256 @@
 </div>
 
 <script>
+    // Global state for permissions
+    let currentUserId = null;
+    let currentPermissions = {}; // item_id -> isRestricted (true/false)
+    let originalPermissions = {}; // For reset functionality
+    let allItems = [];
+    
+    // Load items for permission management
+    async function loadUserPermissions() {
+        const userSelect = document.getElementById('userSelect');
+        const userId = userSelect.value;
+        
+        if (!userId) {
+            // Hide permission UI
+            document.getElementById('selectedUserInfo').style.display = 'none';
+            document.getElementById('permissionItemsContainer').style.display = 'none';
+            document.getElementById('actionButtons').style.display = 'none';
+            document.getElementById('noUserSelected').style.display = 'flex';
+            currentUserId = null;
+            return;
+        }
+        
+        currentUserId = parseInt(userId);
+        const selectedOption = userSelect.options[userSelect.selectedIndex];
+        const userPin = selectedOption.getAttribute('data-pin');
+        
+        // Show selected user info
+        document.getElementById('selectedUserPin').textContent = userPin;
+        document.getElementById('selectedUserInfo').style.display = 'flex';
+        document.getElementById('noUserSelected').style.display = 'none';
+        document.getElementById('permissionItemsContainer').style.display = 'block';
+        
+        // Show loading
+        const itemsList = document.getElementById('permissionItemsList');
+        itemsList.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-pulse"></i> Loading items...</div>';
+        
+        try {
+            // Fetch all items from the server
+            const itemsResponse = await fetch('/admin/api/all_items');
+            const itemsData = await itemsResponse.json();
+            allItems = itemsData.items;
+            
+            // Fetch current permissions for this user
+            const permResponse = await fetch(`/admin/api/user_permissions/${userId}`);
+            const permData = await permResponse.json();
+            
+            // Build currentPermissions map
+            currentPermissions = {};
+            for (const item of allItems) {
+                currentPermissions[item.id] = permData.restricted.includes(item.id);
+            }
+            
+            // Store original for reset
+            originalPermissions = { ...currentPermissions };
+            
+            // Render the permission items list
+            renderPermissionItems();
+            
+            // Update restricted count
+            updateRestrictedCount();
+            
+            // Show action buttons
+            document.getElementById('actionButtons').style.display = 'flex';
+            
+        } catch (error) {
+            console.error('Error loading permissions:', error);
+            itemsList.innerHTML = '<div class="info-note" style="justify-content: center;"><i class="fas fa-exclamation-triangle"></i> Error loading items. Please refresh.</div>';
+        }
+    }
+    
+    // Render all items with permission toggles
+    function renderPermissionItems() {
+        const itemsList = document.getElementById('permissionItemsList');
+        
+        if (allItems.length === 0) {
+            itemsList.innerHTML = '<div class="info-note" style="justify-content: center;"><i class="fas fa-folder-open"></i> No items available</div>';
+            return;
+        }
+        
+        // Separate folders and files
+        const folders = allItems.filter(item => item.type === 'folder');
+        const files = allItems.filter(item => item.type !== 'folder');
+        const sortedItems = [...folders, ...files];
+        
+        itemsList.innerHTML = '';
+        
+        for (const item of sortedItems) {
+            const isRestricted = currentPermissions[item.id];
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'perm-item';
+            itemDiv.onclick = () => togglePermission(item.id);
+            
+            // Get icon based on type
+            let iconClass = 'fa-file';
+            let iconColor = '';
+            if (item.type === 'folder') {
+                iconClass = 'fa-folder';
+                iconColor = '#f59e0b';
+            } else if (item.link_url) {
+                iconClass = 'fa-link';
+                iconColor = '#06b6d4';
+            } else if (item.mime_type) {
+                if (item.mime_type.includes('pdf')) iconClass = 'fa-file-pdf';
+                else if (item.mime_type.includes('image')) iconClass = 'fa-file-image';
+                else if (item.mime_type.includes('video')) iconClass = 'fa-file-video';
+                else if (item.mime_type.includes('audio')) iconClass = 'fa-file-audio';
+                else iconClass = 'fa-file';
+            }
+            
+            itemDiv.innerHTML = `
+                <div class="perm-item-info">
+                    <i class="fas ${iconClass}" style="color: ${iconColor || 'var(--accent-blue)'};"></i>
+                    <span class="perm-item-name">${escapeHtml(item.name)}</span>
+                    <span class="perm-item-type">${item.type}</span>
+                </div>
+                <div class="perm-item-status">
+                    <div class="status-indicator ${isRestricted ? 'restricted' : 'allowed'}">
+                        <i class="fas ${isRestricted ? 'fa-times' : 'fa-check'}"></i>
+                    </div>
+                    <span class="perm-badge ${isRestricted ? 'restricted' : 'allowed'}">
+                        ${isRestricted ? 'Restricted' : 'Allowed'}
+                    </span>
+                </div>
+            `;
+            
+            itemsList.appendChild(itemDiv);
+        }
+    }
+    
+    // Toggle permission for an item
+    function togglePermission(itemId) {
+        if (!currentUserId) return;
+        
+        currentPermissions[itemId] = !currentPermissions[itemId];
+        
+        // Update UI for this specific item
+        const itemsList = document.getElementById('permissionItemsList');
+        const items = itemsList.children;
+        
+        for (let i = 0; i < items.length; i++) {
+            const itemDiv = items[i];
+            const item = allItems.find(it => it.id === itemId);
+            if (item) {
+                const isRestricted = currentPermissions[itemId];
+                const statusDiv = itemDiv.querySelector('.status-indicator');
+                const badgeSpan = itemDiv.querySelector('.perm-badge');
+                
+                if (statusDiv) {
+                    statusDiv.className = `status-indicator ${isRestricted ? 'restricted' : 'allowed'}`;
+                    statusDiv.innerHTML = `<i class="fas ${isRestricted ? 'fa-times' : 'fa-check'}"></i>`;
+                }
+                if (badgeSpan) {
+                    badgeSpan.className = `perm-badge ${isRestricted ? 'restricted' : 'allowed'}`;
+                    badgeSpan.textContent = isRestricted ? 'Restricted' : 'Allowed';
+                }
+                break;
+            }
+        }
+        
+        updateRestrictedCount();
+    }
+    
+    // Update the count of restricted items
+    function updateRestrictedCount() {
+        const restrictedCount = Object.values(currentPermissions).filter(v => v === true).length;
+        const countSpan = document.getElementById('restrictedCount');
+        countSpan.textContent = `${restrictedCount} restricted`;
+        countSpan.className = `perm-badge ${restrictedCount > 0 ? 'restricted' : 'allowed'}`;
+    }
+    
+    // Save permissions to server
+    async function savePermissions() {
+        if (!currentUserId) {
+            showToast('Please select a user first', 'error');
+            return;
+        }
+        
+        // Get list of restricted item IDs
+        const restrictedItems = Object.keys(currentPermissions).filter(id => currentPermissions[id] === true).map(id => parseInt(id));
+        
+        // Show saving indicator
+        const saveBtn = document.querySelector('#actionButtons .btn-primary');
+        const originalText = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Saving...';
+        saveBtn.disabled = true;
+        
+        try {
+            const formData = new URLSearchParams();
+            formData.append('user_id', currentUserId);
+            formData.append('restricted_items', restrictedItems.join(','));
+            formData.append('folder_id', '{{ folder_id }}');
+            
+            const response = await fetch('{{ url_for("update_permissions") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: formData
+            });
+            
+            if (response.ok) {
+                showToast('Permissions saved successfully!', 'success');
+                // Update original permissions
+                originalPermissions = { ...currentPermissions };
+            } else {
+                showToast('Error saving permissions', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving permissions:', error);
+            showToast('Network error. Please try again.', 'error');
+        } finally {
+            saveBtn.innerHTML = originalText;
+            saveBtn.disabled = false;
+        }
+    }
+    
+    // Reset permissions to last saved state
+    function resetPermissions() {
+        if (!currentUserId) return;
+        
+        currentPermissions = { ...originalPermissions };
+        renderPermissionItems();
+        updateRestrictedCount();
+        showToast('Permissions reset to last saved state', 'success');
+    }
+    
+    // Escape HTML to prevent XSS
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Show toast message
+    function showToast(message, type) {
+        const container = document.getElementById('toastContainer');
+        if (!container) {
+            const newContainer = document.createElement('div');
+            newContainer.id = 'toastContainer';
+            newContainer.className = 'toast-container';
+            document.body.appendChild(newContainer);
+        }
+        const toastContainer = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i><span>${message}</span>`;
+        toastContainer.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+    }
+    
+    // Modal functions
     function showUploadModal() {
         document.getElementById('uploadModal').style.display = 'flex';
     }
@@ -1429,11 +1830,21 @@
         document.getElementById('moveModal').style.display = 'flex';
     }
     
+    // Close modals on escape
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
         }
     });
+    
+    // Flash messages from server
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                showToast('{{ message }}', '{{ category }}');
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
 </script>
 
 {% endblock %}
