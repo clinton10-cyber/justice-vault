@@ -360,6 +360,42 @@ def serve_thumbnail(filename):
         logger.error(f"Thumbnail serving error: {e}")
         return '', 404
 
+# ==================== PERMISSION API ROUTES ====================
+@app.route('/admin/api/all_items')
+@admin_required
+def api_all_items():
+    """Get all items for permission management"""
+    items = Item.query.order_by(Item.type.desc(), Item.name).all()
+    items_list = []
+    
+    def add_item_with_children(item):
+        items_list.append({
+            'id': item.id,
+            'name': item.name,
+            'type': item.type,
+            'parent_id': item.parent_id,
+            'mime_type': item.mime_type,
+            'link_url': item.link_url
+        })
+        for child in item.children:
+            add_item_with_children(child)
+    
+    # Get root items first
+    root_items = Item.query.filter_by(parent_id=None).order_by(Item.type.desc(), Item.name).all()
+    for item in root_items:
+        add_item_with_children(item)
+    
+    return jsonify({'items': items_list})
+
+@app.route('/admin/api/user_permissions/<int:user_id>')
+@admin_required
+def api_user_permissions(user_id):
+    """Get restricted items for a user"""
+    user = User.query.get_or_404(user_id)
+    restricted_perms = UserItemPermission.query.filter_by(user_id=user_id, can_access=False).all()
+    restricted_ids = [p.item_id for p in restricted_perms]
+    return jsonify({'restricted': restricted_ids})
+
 # ==================== ADMIN ROUTES ====================
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_login():
