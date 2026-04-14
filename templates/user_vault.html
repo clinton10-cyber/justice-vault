@@ -19,7 +19,6 @@
             color: #1a1f36;
         }
 
-        /* Simple scrollbar */
         ::-webkit-scrollbar {
             width: 6px;
             height: 6px;
@@ -33,7 +32,6 @@
             border-radius: 10px;
         }
 
-        /* Smooth card hover */
         .item-card {
             transition: all 0.2s ease;
         }
@@ -42,7 +40,6 @@
             box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.12);
         }
 
-        /* Button styles */
         .btn-primary {
             background: #4f46e5;
             transition: all 0.2s;
@@ -51,7 +48,6 @@
             background: #4338ca;
         }
 
-        /* Toast messages */
         .toast-container {
             position: fixed;
             top: 20px;
@@ -82,14 +78,12 @@
             to { transform: translateX(0); opacity: 1; }
         }
 
-        /* Image fallback */
         .owner-img {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
         
-        /* Disabled button style */
         .btn-disabled {
             display: block;
             text-align: center;
@@ -101,18 +95,6 @@
             cursor: not-allowed;
         }
         
-        /* Restricted folder card style */
-        .item-card.restricted {
-            opacity: 0.7;
-            filter: grayscale(0.2);
-        }
-        
-        .item-card.restricted:hover {
-            transform: none;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-        }
-        
-        /* Access denied modal */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -191,12 +173,11 @@
 
 <div class="toast-container" id="toastContainer"></div>
 
-<!-- Access Denied Modal -->
 <div id="accessDeniedModal" class="modal-overlay" onclick="closeAccessDeniedModal()">
     <div class="access-denied-modal" onclick="event.stopPropagation()">
         <i class="fas fa-lock"></i>
         <h3>Access Denied</h3>
-        <p id="deniedMessage">You don't have permission to access this folder. Please contact the administrator.</p>
+        <p id="deniedMessage">You don't have permission to access this item. Please contact the administrator.</p>
         <button onclick="closeAccessDeniedModal()">
             <i class="fas fa-check"></i> Got it
         </button>
@@ -205,12 +186,10 @@
 
 {% if not logged_in %}
 
-<!-- Login Page -->
 <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; background: #f0f2f5;">
     <div style="background: white; border-radius: 28px; padding: 48px 40px; max-width: 460px; width: 100%; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);">
         
         <div style="text-align: center;">
-            <!-- Owner Photo -->
             <div style="width: 96px; height: 96px; border-radius: 50%; margin: 0 auto 20px; overflow: hidden; background: #e8eef5; border: 3px solid #e2e8f0;">
                 <img src="{{ url_for('owner_image') }}" 
                      alt="Coach Odighiode" 
@@ -254,15 +233,12 @@
 
 {% else %}
 
-<!-- Main Vault Dashboard -->
 <div style="background: #f5f7fa; min-height: 100vh;">
     
-    <!-- Header -->
     <div style="background: white; border-bottom: 1px solid #e2e8f0; padding: 20px 28px;">
         <div style="max-width: 1400px; margin: 0 auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
                 <div style="display: flex; align-items: center; gap: 16px;">
-                    <!-- Owner small photo -->
                     <div style="width: 48px; height: 48px; border-radius: 50%; overflow: hidden; background: #e2e8f0;">
                         <img src="{{ url_for('owner_image') }}" 
                              alt="Coach" 
@@ -286,7 +262,6 @@
                 </a>
             </div>
             
-            <!-- Breadcrumb - Show only accessible folders in breadcrumb -->
             <div style="margin-top: 20px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 13px;">
                 <a href="{{ url_for('user_vault') }}" style="color: #4f46e5; text-decoration: none;">Home</a>
                 {% for crumb in breadcrumb %}
@@ -297,10 +272,8 @@
         </div>
     </div>
 
-    <!-- Main Content -->
     <div style="max-width: 1400px; margin: 0 auto; padding: 32px 28px;">
         
-        <!-- Back button -->
         {% if folder_id %}
         <div style="margin-bottom: 24px;">
             <a href="{{ url_for('user_vault') }}" style="display: inline-flex; align-items: center; gap: 8px; background: white; padding: 8px 20px; border-radius: 30px; text-decoration: none; color: #475569; font-size: 14px; border: 1px solid #e2e8f0;">
@@ -309,7 +282,6 @@
         </div>
         {% endif %}
 
-        <!-- Info bar -->
         <div style="background: white; border-radius: 16px; padding: 16px 24px; margin-bottom: 28px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border: 1px solid #e2e8f0;">
             <div style="display: flex; gap: 20px; flex-wrap: wrap;">
                 <div>
@@ -327,17 +299,15 @@
             </div>
         </div>
 
-        <!-- Items Grid -->
         {% if items %}
         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px;">
             {% for item in items %}
-            <div class="item-card {% if not item.can_access and item.type == 'folder' %}restricted{% endif %}" style="background: white; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+            <div class="item-card" style="background: white; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
                 
-                <!-- Preview area -->
                 <div style="background: #f8fafc; height: 160px; display: flex; align-items: center; justify-content: center; position: relative;">
-                    {% if not item.can_access and item.type == 'folder' %}
+                    {% if not item.can_access %}
                         <div style="position: absolute; top: 12px; right: 12px; background: #ef4444; color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;">
-                            <i class="fas fa-lock"></i> Restricted
+                            <i class="fas fa-lock"></i> {% if item.type == 'folder' %}Restricted Folder{% else %}Restricted{% endif %}
                         </div>
                     {% endif %}
                     
@@ -348,32 +318,30 @@
                             <i class="fas fa-folder-open" style="font-size: 60px; color: {% if item.can_access %}#d97706{% else %}#94a3b8{% endif %};"></i>
                         </div>
                     {% else %}
-                        <div style="background: #e0e7ff; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
-                            <i class="fas {{ item.icon if item.icon else 'fa-file-alt' }}" style="font-size: 60px; color: #4f46e5;"></i>
+                        <div style="background: {% if item.can_access %}#e0e7ff{% else %}#fee2e2{% endif %}; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas {{ item.icon if item.icon else 'fa-file-alt' }}" style="font-size: 60px; color: {% if item.can_access %}#4f46e5{% else %}#ef4444{% endif %};"></i>
                         </div>
                     {% endif %}
                 </div>
                 
-                <!-- Info -->
                 <div style="padding: 18px;">
                     <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 6px; color: #1e293b; word-break: break-word;">{{ item.name }}</h3>
                     {% if item.size %}
                     <p style="color: #64748b; font-size: 12px; margin-bottom: 14px;">{{ (item.size / 1024 / 1024)|round(2) }} MB</p>
                     {% elif item.link_url %}
                     <p style="color: #64748b; font-size: 11px; margin-bottom: 14px;">
-                        <i class="fa-user-edit"></i> product file from sir justice
+                        <i class="fas fa-link"></i> External Link
                     </p>
                     {% endif %}
                     
-                    <!-- Action -->
                     {% if item.type == 'folder' %}
                         {% if item.can_access %}
                             <a href="{{ url_for('user_vault', folder=item.id) }}" style="display: block; text-align: center; padding: 10px; background: #f1f5f9; border-radius: 40px; text-decoration: none; color: #334155; font-size: 14px;">
-                                <i class="fas fa-folder-open"></i> Open
+                                <i class="fas fa-folder-open"></i> Open Folder
                             </a>
                         {% else %}
-                            <button onclick="showAccessDenied('{{ item.name }}')" style="display: block; width: 100%; text-align: center; padding: 10px; background: #fef2f2; border-radius: 40px; color: #dc2626; font-size: 14px; border: none; cursor: pointer;">
-                                <i class="fas fa-lock"></i> No Access
+                            <button onclick="showAccessDenied('{{ item.name }}', 'folder')" style="display: block; width: 100%; text-align: center; padding: 10px; background: #fef2f2; border-radius: 40px; color: #dc2626; font-size: 14px; border: none; cursor: pointer;">
+                                <i class="fas fa-lock"></i> Access Denied
                             </button>
                         {% endif %}
                     {% elif item.can_access %}
@@ -381,8 +349,8 @@
                             <i class="fas fa-download"></i> Download
                         </a>
                     {% else %}
-                        <div class="btn-disabled">
-                            <i class="fas fa-lock"></i> No access
+                        <div style="display: block; text-align: center; padding: 10px; background: #fef2f2; border-radius: 40px; color: #dc2626; font-size: 14px;">
+                            <i class="fas fa-lock"></i> No Access
                         </div>
                     {% endif %}
                 </div>
@@ -391,7 +359,6 @@
         </div>
         {% else %}
         
-        <!-- Empty state -->
         <div style="text-align: center; padding: 60px 40px; background: white; border-radius: 20px; border: 1px solid #e2e8f0;">
             <i class="fas fa-folder-open" style="font-size: 64px; color: #cbd5e1;"></i>
             <h3 style="font-size: 22px; font-weight: 600; margin: 20px 0 8px; color: #334155;">No items yet</h3>
@@ -399,7 +366,6 @@
         </div>
         {% endif %}
 
-        <!-- Footer -->
         <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #e2e8f0; text-align: center;">
             <div style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-bottom: 16px;">
                 <span style="font-size: 12px; color: #64748b;">
@@ -421,27 +387,27 @@
 {% endif %}
 
 <script>
-    // Show access denied modal
-    function showAccessDenied(folderName) {
+    function showAccessDenied(itemName, itemType) {
         const modal = document.getElementById('accessDeniedModal');
         const messageEl = document.getElementById('deniedMessage');
-        messageEl.innerHTML = `You don't have permission to access "<strong>${escapeHtml(folderName)}</strong>".<br><br>Please contact the administrator to request access.`;
+        if (itemType === 'folder') {
+            messageEl.innerHTML = `You don't have permission to access the folder "<strong>${escapeHtml(itemName)}</strong>".<br><br>This folder has been restricted by the administrator.`;
+        } else {
+            messageEl.innerHTML = `You don't have permission to download "<strong>${escapeHtml(itemName)}</strong>".<br><br>This file has been restricted by the administrator.`;
+        }
         modal.style.display = 'flex';
     }
     
-    // Close access denied modal
     function closeAccessDeniedModal() {
         document.getElementById('accessDeniedModal').style.display = 'none';
     }
     
-    // Escape HTML to prevent XSS
     function escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
     
-    // Toast message function
     function showToast(message, type) {
         var container = document.getElementById('toastContainer');
         if (!container) return;
@@ -455,14 +421,12 @@
         }, 3500);
     }
     
-    // Close modal on escape key
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             closeAccessDeniedModal();
         }
     });
     
-    // Flash messages from server
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
@@ -473,4 +437,4 @@
 </script>
 
 </body>
-</html>
+    </html>
