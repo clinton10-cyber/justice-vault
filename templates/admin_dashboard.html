@@ -1458,6 +1458,7 @@
             const isRestricted = currentPermissions[item.id];
             const itemDiv = document.createElement('div');
             itemDiv.className = 'perm-item';
+            itemDiv.dataset.itemId = item.id;
             itemDiv.onclick = () => togglePermission(item.id);
             
             let iconClass = 'fa-file';
@@ -1500,33 +1501,31 @@
     
     function togglePermission(itemId) {
         if (!currentUserId) return;
-        
+
         currentPermissions[itemId] = !currentPermissions[itemId];
-        
+
         const itemsList = document.getElementById('permissionItemsList');
-        const items = itemsList.children;
-        
-        for (let i = 0; i < items.length; i++) {
-            const itemDiv = items[i];
-            const item = allItems.find(it => it.id === itemId);
-            if (item) {
-                const isRestricted = currentPermissions[itemId];
-                const statusDiv = itemDiv.querySelector('.status-indicator');
-                const badgeSpan = itemDiv.querySelector('.perm-badge');
-                
-                if (statusDiv) {
-                    statusDiv.className = `status-indicator ${isRestricted ? 'restricted' : 'allowed'}`;
-                    statusDiv.innerHTML = `<i class="fas ${isRestricted ? 'fa-times' : 'fa-check'}"></i>`;
-                }
-                if (badgeSpan) {
-                    badgeSpan.className = `perm-badge ${isRestricted ? 'restricted' : 'allowed'}`;
-                    const restrictionText = isRestricted ? (item.type === 'folder' ? '🚫 Block Folder' : '🔒 Restrict File') : (item.type === 'folder' ? '✅ Allow Access' : '✅ Allow Download');
-                    badgeSpan.textContent = restrictionText;
-                }
-                break;
+        const itemDiv = itemsList.querySelector(`[data-item-id="${itemId}"]`);
+        const item = allItems.find(it => it.id === itemId);
+
+        if (itemDiv && item) {
+            const isRestricted = currentPermissions[itemId];
+            const statusDiv = itemDiv.querySelector('.status-indicator');
+            const badgeSpan = itemDiv.querySelector('.perm-badge');
+
+            if (statusDiv) {
+                statusDiv.className = `status-indicator ${isRestricted ? 'restricted' : 'allowed'}`;
+                statusDiv.innerHTML = `<i class="fas ${isRestricted ? 'fa-times' : 'fa-check'}"></i>`;
+            }
+            if (badgeSpan) {
+                badgeSpan.className = `perm-badge ${isRestricted ? 'restricted' : 'allowed'}`;
+                const restrictionText = isRestricted
+                    ? (item.type === 'folder' ? '🚫 Block Folder' : '🔒 Restrict File')
+                    : (item.type === 'folder' ? '✅ Allow Access' : '✅ Allow Download');
+                badgeSpan.textContent = restrictionText;
             }
         }
-        
+
         updateRestrictedCount();
     }
     
