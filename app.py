@@ -184,8 +184,9 @@ def get_user_by_pin(pin):
     return User.query.filter_by(pin=pin).first()
 
 def get_user_permissions(user_id):
+    """Get all item IDs that are restricted for this user"""
     permissions = UserItemPermission.query.filter_by(user_id=user_id, can_access=False).all()
-    return [p.item_id for p in permissions]
+    return set([p.item_id for p in permissions])
 
 def get_file_icon(mime_type):
     if not mime_type:
@@ -380,7 +381,6 @@ def api_all_items():
         for child in item.children:
             add_item_with_children(child)
     
-    # Get root items first
     root_items = Item.query.filter_by(parent_id=None).order_by(Item.type.desc(), Item.name).all()
     for item in root_items:
         add_item_with_children(item)
@@ -847,16 +847,26 @@ def user_vault():
     if parent_id and parent_id != 'None':
         try:
             parent_id_int = int(parent_id)
+            if parent_id_int in restricted_items:
+                flash('You do not have permission to access this folder.', 'error')
+                return redirect(url_for('user_vault'))
+            
             items = Item.query.filter_by(parent_id=parent_id_int).order_by(Item.type.desc(), Item.name).all()
         except (ValueError, TypeError):
             items = Item.query.filter_by(parent_id=None).order_by(Item.type.desc(), Item.name).all()
             parent_id = None
     else:
-        items = Item.query.filter_by(parent_id=None).order_by(Item.type.desc(), Item.name).all()
+        all_root_items = Item.query.filter_by(parent_id=None).order_by(Item.type.desc(), Item.name).all()
+        items = [item for item in all_root_items if item.id not in restricted_items or item.type == 'folder']
         parent_id = None
     
     items_with_access = []
     for item in items:
+        if item.type == 'folder':
+            can_access = item.id not in restricted_items
+        else:
+            can_access = item.id not in restricted_items
+        
         thumbnail_url = None
         if item.thumbnail_path:
             thumbnail_url = url_for('serve_thumbnail', filename=os.path.basename(item.thumbnail_path))
@@ -868,7 +878,7 @@ def user_vault():
             'thumbnail_url': thumbnail_url, 
             'size': item.size,
             'size_formatted': format_file_size(item.size),
-            'can_access': item.id not in restricted_items,
+            'can_access': can_access,
             'icon': 'fa-folder' if item.type == 'folder' else get_file_icon(item.mime_type),
             'link_url': item.link_url
         })
@@ -876,13 +886,19 @@ def user_vault():
     breadcrumb = []
     if parent_id:
         temp_id = int(parent_id)
+        breadcrumb_items = []
         while temp_id:
             crumb = Item.query.get(temp_id)
             if crumb:
-                breadcrumb.insert(0, {'id': crumb.id, 'name': crumb.name})
+                breadcrumb_items.insert(0, {'id': crumb.id, 'name': crumb.name})
                 temp_id = crumb.parent_id
             else:
                 break
+        for crumb in breadcrumb_items:
+            if crumb['id'] in restricted_items:
+                flash('Access denied to parent folder', 'error')
+                return redirect(url_for('user_vault'))
+        breadcrumb = breadcrumb_items
     
     return render_template('user_vault.html', logged_in=True, items=items_with_access,
                          folder_id=parent_id, breadcrumb=breadcrumb)
@@ -894,8 +910,10 @@ def download_item(item_id):
         return redirect(url_for('user_vault'))
     
     user_id = session['user_id']
-    if item_id in get_user_permissions(user_id):
-        flash('Access denied to this item', 'error')
+    restricted_items = get_user_permissions(user_id)
+    
+    if item_id in restricted_items:
+        flash('Access denied to this file', 'error')
         return redirect(url_for('user_vault'))
     
     item = Item.query.get(item_id)
@@ -903,19 +921,20 @@ def download_item(item_id):
         flash('Item not found', 'error')
         return redirect(url_for('user_vault'))
     
-    # Log download
+    if item.type == 'folder':
+        if item.id in restricted_items:
+            flash('Access denied to this folder', 'error')
+            return redirect(url_for('user_vault'))
+    
     download = Download(user_id=user_id, item_id=item_id)
     db.session.add(download)
     db.session.commit()
     
-    # Handle link files - UNIVERSAL BROWSER COMPATIBLE APPROACH
     if item.link_url and not item.file_path:
-        # Convert Google Drive links to direct download format
         download_url = item.link_url
         if 'drive.google.com' in download_url:
             download_url = get_google_drive_direct_url(download_url)
         
-        # Return HTML with multiple fallback methods for universal browser compatibility
         return f'''
         <!DOCTYPE html>
         <html>
@@ -1084,7 +1103,6 @@ def download_item(item_id):
                     `;
                 }}
                 
-                // Method 1: Create hidden anchor and click
                 function tryAnchorDownload() {{
                     var link = document.createElement('a');
                     link.href = downloadUrl;
@@ -1107,7 +1125,6 @@ def download_item(item_id):
                     }}, 1500);
                 }}
                 
-                // Method 2: Use iframe (works in most browsers)
                 function tryIframeDownload() {{
                     var iframe = document.createElement('iframe');
                     iframe.style.display = 'none';
@@ -1129,11 +1146,9 @@ def download_item(item_id):
                     }}, 2000);
                 }}
                 
-                // Method 3: Window.open (last resort before manual)
                 function tryWindowOpen() {{
                     var newWindow = window.open(downloadUrl, '_blank');
                     if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {{
-                        // Popup blocked
                         if (attempts >= 1) {{
                             showError();
                         }} else {{
@@ -1150,7 +1165,6 @@ def download_item(item_id):
                     }}
                 }}
                 
-                // Mark as success (listener not possible for downloads, so we assume after delay)
                 setTimeout(function() {{
                     success = true;
                     var statusMsg = document.getElementById('statusMessage');
@@ -1159,12 +1173,10 @@ def download_item(item_id):
                     }}
                 }}, 1000);
                 
-                // Start download attempts
                 setTimeout(function() {{
                     tryAnchorDownload();
                 }}, 500);
                 
-                // Auto-close this tab after 8 seconds if download started
                 setTimeout(function() {{
                     if (success) {{
                         window.close();
@@ -1175,17 +1187,22 @@ def download_item(item_id):
         </html>
         '''
     
-    # Handle folder downloads (zip)
     if item.type == 'folder':
+        if item.id in restricted_items:
+            flash('Access denied to this folder', 'error')
+            return redirect(url_for('user_vault'))
+        
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
             def add_folder_to_zip(folder_item, path=""):
                 for child in folder_item.children:
                     if child.type == 'folder':
-                        add_folder_to_zip(child, os.path.join(path, child.name))
+                        if child.id not in restricted_items:
+                            add_folder_to_zip(child, os.path.join(path, child.name))
                     elif child.type == 'file' and child.file_path and os.path.exists(child.file_path):
-                        arcname = os.path.join(path, child.original_filename or child.name)
-                        zipf.write(child.file_path, arcname)
+                        if child.id not in restricted_items:
+                            arcname = os.path.join(path, child.original_filename or child.name)
+                            zipf.write(child.file_path, arcname)
             add_folder_to_zip(item, item.name)
         zip_buffer.seek(0)
         
@@ -1196,7 +1213,6 @@ def download_item(item_id):
         
         return send_file(zip_buffer, as_attachment=True, download_name=f"{item.name}.zip", mimetype='application/zip')
     
-    # Handle regular file downloads
     else:
         if not item.file_path or not os.path.exists(item.file_path):
             flash('File not found on server', 'error')
