@@ -63,10 +63,13 @@
         }
         .nav-brand { display: flex; align-items: center; gap: 12px; }
         .nav-icon {
-            width: 38px; height: 38px; border-radius: 10px; background: var(--primary-light);
+            width: 38px; height: 38px; border-radius: 50%; overflow: hidden;
+            background: var(--primary-light); flex-shrink: 0;
+            border: 2px solid var(--border);
             display: flex; align-items: center; justify-content: center;
-            color: var(--primary); font-size: 17px; flex-shrink: 0;
+            color: var(--primary); font-size: 17px;
         }
+        .nav-icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .nav-name { font-size: 17px; font-weight: 700; color: var(--text); }
         .nav-sub { font-size: 11px; color: var(--text-subtle); font-family: 'JetBrains Mono', monospace; }
         .nav-actions { display: flex; align-items: center; gap: 8px; }
@@ -223,10 +226,14 @@
         }
         .login-header { text-align: center; margin-bottom: 32px; }
         .login-logo {
-            width: 72px; height: 72px; border-radius: 20px; background: var(--primary-light);
+            width: 80px; height: 80px; border-radius: 50%;
+            margin: 0 auto 20px; overflow: hidden;
+            border: 3px solid var(--border);
+            background: var(--primary-light);
             display: flex; align-items: center; justify-content: center;
-            margin: 0 auto 20px; font-size: 32px; color: var(--primary);
         }
+        .login-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .login-logo i { font-size: 32px; color: var(--primary); }
         .login-title { font-size: 26px; font-weight: 700; }
         .login-sub { font-size: 14px; color: var(--text-muted); margin-top: 6px; }
         .login-body label {
@@ -352,7 +359,10 @@
 <div class="login-wrap">
     <div class="login-card">
         <div class="login-header">
-            <div class="login-logo"><i class="fas fa-shield-alt"></i></div>
+            <div class="login-logo">
+                <img src="{{ url_for('owner_image') }}" alt="Justice Vault"
+                     onerror="this.style.display='none'; this.parentElement.innerHTML='<i class=\'fas fa-shield-alt\'></i>';">
+            </div>
             <h1 class="login-title">Justice Vault</h1>
             <p class="login-sub">Enter your PIN to access your documents</p>
         </div>
@@ -402,7 +412,10 @@
 <!-- Top Nav -->
 <nav class="top-nav">
     <div class="nav-brand">
-        <div class="nav-icon"><i class="fas fa-shield-alt"></i></div>
+        <div class="nav-icon">
+            <img src="{{ url_for('owner_image') }}" alt="Justice Vault"
+                 onerror="this.style.display='none'; this.parentElement.innerHTML='<i class=\'fas fa-shield-alt\'></i>';">
+        </div>
         <div>
             <div class="nav-name">Justice Vault</div>
             <div class="nav-sub">Secure Digital Archive</div>
