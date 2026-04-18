@@ -7,165 +7,338 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --primary-light: #eef2ff;
+            --success: #10b981;
+            --danger: #ef4444;
+            --surface: #ffffff;
+            --surface-2: #f8fafc;
+            --border: #e2e8f0;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --text-subtle: #94a3b8;
         }
 
         body {
             font-family: 'Inter', sans-serif;
-            background: #f5f7fa;
-            color: #1a1f36;
+            background: #f1f5f9;
+            color: var(--text);
+            min-height: 100vh;
         }
 
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #e2e8f0;
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 10px;
-        }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
 
-        .item-card {
-            transition: all 0.2s ease;
-        }
-        .item-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.12);
-        }
-
-        .btn-primary {
-            background: #4f46e5;
-            transition: all 0.2s;
-        }
-        .btn-primary:hover {
-            background: #4338ca;
-        }
-
+        /* ─── Toast ─── */
         .toast-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
+            position: fixed; top: 20px; right: 20px; z-index: 9999;
+            display: flex; flex-direction: column; gap: 8px;
         }
         .toast {
-            background: white;
-            border-radius: 12px;
-            padding: 14px 20px;
-            margin-bottom: 10px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            animation: slideIn 0.2s ease;
+            background: var(--surface); border-radius: 12px; padding: 12px 18px;
+            box-shadow: 0 8px 24px rgba(0,0,0,.12); display: flex; align-items: center;
+            gap: 10px; font-size: 14px; font-weight: 500; border-left: 4px solid var(--border);
+            min-width: 240px; animation: slideInToast .2s ease;
         }
-        .toast.success {
-            background: #10b981;
-            color: white;
-        }
-        .toast.error {
-            background: #ef4444;
-            color: white;
-        }
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+        .toast.success { border-left-color: var(--success); }
+        .toast.success i { color: var(--success); }
+        .toast.error   { border-left-color: var(--danger); }
+        .toast.error i { color: var(--danger); }
+        @keyframes slideInToast {
+            from { transform: translateX(110%); opacity: 0; }
+            to   { transform: translateX(0); opacity: 1; }
         }
 
-        .owner-img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+        /* ─── Top Nav ─── */
+        .top-nav {
+            background: var(--surface); border-bottom: 1px solid var(--border);
+            padding: 0 28px; height: 64px; display: flex; align-items: center;
+            justify-content: space-between; position: sticky; top: 0; z-index: 100;
+            box-shadow: 0 1px 3px rgba(0,0,0,.05);
         }
-        
-        .btn-disabled {
-            display: block;
-            text-align: center;
-            padding: 10px;
-            background: #fef2f2;
-            border-radius: 40px;
-            color: #dc2626;
-            font-size: 14px;
-            cursor: not-allowed;
+        .nav-brand { display: flex; align-items: center; gap: 12px; }
+        .nav-icon {
+            width: 38px; height: 38px; border-radius: 10px; background: var(--primary-light);
+            display: flex; align-items: center; justify-content: center;
+            color: var(--primary); font-size: 17px; flex-shrink: 0;
         }
-        
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(8px);
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            padding: 20px;
+        .nav-name { font-size: 17px; font-weight: 700; color: var(--text); }
+        .nav-sub { font-size: 11px; color: var(--text-subtle); font-family: 'JetBrains Mono', monospace; }
+        .nav-actions { display: flex; align-items: center; gap: 8px; }
+
+        .btn-search {
+            display: flex; align-items: center; gap: 8px; background: var(--surface-2);
+            border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px;
+            font-size: 13px; color: var(--text-muted); cursor: pointer; transition: all .15s;
+            font-family: 'Inter', sans-serif;
         }
-        
-        .access-denied-modal {
-            background: white;
-            border-radius: 28px;
-            padding: 32px;
-            max-width: 420px;
-            width: 100%;
-            text-align: center;
-            animation: modalSlideIn 0.3s ease;
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+        .btn-search:hover { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
+        .kbd {
+            background: var(--border); border-radius: 4px; padding: 1px 6px;
+            font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text-subtle);
         }
-        
-        @keyframes modalSlideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-20px) scale(0.95);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
+        .btn-logout {
+            display: flex; align-items: center; gap: 6px; background: transparent;
+            border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px;
+            font-size: 13px; color: var(--text-muted); text-decoration: none; transition: all .15s;
         }
-        
-        .access-denied-modal i {
-            font-size: 64px;
-            color: #ef4444;
-            margin-bottom: 20px;
+        .btn-logout:hover { background: #fef2f2; border-color: #fca5a5; color: var(--danger); }
+
+        /* ─── Breadcrumb Bar ─── */
+        .breadcrumb-bar {
+            background: var(--surface); border-bottom: 1px solid var(--border);
+            padding: 10px 28px; display: flex; align-items: center; gap: 6px;
+            font-size: 13px; flex-wrap: wrap;
         }
-        
-        .access-denied-modal h3 {
-            font-size: 24px;
-            font-weight: 700;
-            color: #1e293b;
-            margin-bottom: 12px;
+        .breadcrumb-bar a { color: var(--text-muted); text-decoration: none; }
+        .breadcrumb-bar a:hover { color: var(--primary); }
+        .bc-active { color: var(--text); font-weight: 500; }
+        .bc-sep { color: var(--border); font-size: 11px; }
+        .pin-badge {
+            margin-left: auto; background: var(--primary-light); color: var(--primary);
+            border-radius: 20px; padding: 3px 12px; font-size: 11px;
+            font-family: 'JetBrains Mono', monospace; font-weight: 600;
         }
-        
-        .access-denied-modal p {
-            color: #64748b;
-            margin-bottom: 24px;
-            line-height: 1.5;
+
+        /* ─── Page Layout ─── */
+        .page-body { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
+
+        .toolbar {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 16px; flex-wrap: wrap; gap: 10px;
         }
-        
-        .access-denied-modal button {
-            background: linear-gradient(135deg, #ef4444, #dc2626);
-            color: white;
-            border: none;
-            padding: 12px 28px;
-            border-radius: 40px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
+        .toolbar-left { display: flex; align-items: center; gap: 12px; }
+        .back-btn {
+            display: inline-flex; align-items: center; gap: 7px;
+            background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+            padding: 8px 16px; text-decoration: none; color: var(--text-muted); font-size: 13px;
+            transition: all .15s;
         }
-        
-        .access-denied-modal button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        .back-btn:hover { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
+        .item-count { font-size: 13px; color: var(--text-muted); }
+        .item-count strong { color: var(--text); }
+        .secure-badge {
+            display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--success);
+            background: #f0fdf4; border: 1px solid #86efac; border-radius: 20px; padding: 3px 10px;
+        }
+
+        /* ─── File List ─── */
+        .file-list {
+            background: var(--surface); border-radius: 12px; border: 1px solid var(--border);
+            overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.04);
+        }
+        .file-list-header {
+            display: grid;
+            grid-template-columns: 1fr 110px 100px 140px;
+            padding: 10px 20px;
+            background: var(--surface-2); border-bottom: 1px solid var(--border);
+            font-size: 11px; font-weight: 600; color: var(--text-subtle);
+            text-transform: uppercase; letter-spacing: .5px;
+        }
+        .file-row {
+            display: grid;
+            grid-template-columns: 1fr 110px 100px 140px;
+            padding: 13px 20px; border-bottom: 1px solid var(--border);
+            align-items: center; transition: background .1s;
+        }
+        .file-row:last-child { border-bottom: none; }
+        .file-row:hover { background: #fafbfc; }
+
+        .file-name-cell { display: flex; align-items: center; gap: 12px; min-width: 0; }
+        .file-icon {
+            width: 36px; height: 36px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; flex-shrink: 0;
+        }
+        .fi-folder  { background: #fef9c3; color: #d97706; }
+        .fi-pdf     { background: #fee2e2; color: #dc2626; }
+        .fi-image   { background: #e0f2fe; color: #0284c7; }
+        .fi-video   { background: #f3e8ff; color: #7c3aed; }
+        .fi-audio   { background: #fce7f3; color: #be185d; }
+        .fi-doc     { background: #dbeafe; color: #2563eb; }
+        .fi-zip     { background: #fef3c7; color: #b45309; }
+        .fi-link    { background: #ecfdf5; color: #059669; }
+        .fi-other   { background: #f1f5f9; color: #64748b; }
+
+        .file-label { min-width: 0; }
+        .file-label .f-name {
+            font-size: 14px; font-weight: 500; color: var(--text);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .file-label .f-sub { font-size: 11px; color: var(--text-subtle); margin-top: 2px; }
+
+        .type-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: var(--surface-2); border: 1px solid var(--border);
+            border-radius: 20px; padding: 3px 10px;
+            font-size: 11px; color: var(--text-muted); font-weight: 500;
+        }
+        .size-cell { font-size: 13px; color: var(--text-muted); }
+
+        .action-cell { display: flex; justify-content: flex-end; }
+        .btn-open, .btn-download {
+            display: inline-flex; align-items: center; gap: 7px;
+            border-radius: 40px; padding: 8px 18px; font-size: 13px; font-weight: 600;
+            text-decoration: none; border: none; cursor: pointer; transition: all .15s;
+        }
+        .btn-open { background: var(--primary-light); color: var(--primary); }
+        .btn-open:hover { background: var(--primary); color: #fff; }
+        .btn-download { background: var(--primary); color: #fff; }
+        .btn-download:hover { background: var(--primary-dark); transform: translateY(-1px); }
+
+        /* ─── Empty state ─── */
+        .empty-state {
+            text-align: center; padding: 64px 24px; background: var(--surface);
+            border-radius: 12px; border: 1px solid var(--border);
+        }
+        .empty-state .e-icon {
+            width: 64px; height: 64px; border-radius: 16px; background: var(--surface-2);
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 20px; font-size: 28px; color: var(--text-subtle);
+        }
+        .empty-state h3 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+        .empty-state p { color: var(--text-muted); font-size: 14px; }
+
+        /* ─── Footer ─── */
+        .page-footer {
+            margin-top: 40px; text-align: center; font-size: 12px; color: var(--text-subtle);
+            display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; padding-bottom: 32px;
+        }
+        .page-footer span { display: flex; align-items: center; gap: 5px; }
+
+        /* ─── Login Page ─── */
+        .login-wrap {
+            min-height: 100vh; display: flex; align-items: center; justify-content: center;
+            padding: 24px; background: linear-gradient(135deg, #f0f2ff 0%, #f8fafc 60%, #f0fdf4 100%);
+        }
+        .login-card {
+            background: var(--surface); border-radius: 24px; padding: 44px 40px;
+            max-width: 440px; width: 100%; box-shadow: 0 12px 40px rgba(0,0,0,.1);
+            border: 1px solid var(--border);
+        }
+        .login-header { text-align: center; margin-bottom: 32px; }
+        .login-logo {
+            width: 72px; height: 72px; border-radius: 20px; background: var(--primary-light);
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 20px; font-size: 32px; color: var(--primary);
+        }
+        .login-title { font-size: 26px; font-weight: 700; }
+        .login-sub { font-size: 14px; color: var(--text-muted); margin-top: 6px; }
+        .login-body label {
+            display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;
+        }
+        .inp-wrap { position: relative; margin-bottom: 20px; }
+        .inp-wrap i {
+            position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+            color: var(--text-subtle); font-size: 14px;
+        }
+        .inp-wrap input {
+            width: 100%; padding: 13px 16px 13px 44px; border: 1.5px solid var(--border);
+            border-radius: 12px; font-size: 16px; font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 2px; color: var(--text); outline: none; transition: border-color .15s;
+        }
+        .inp-wrap input:focus { border-color: var(--primary); }
+        .btn-login {
+            width: 100%; padding: 13px; background: var(--primary); color: #fff;
+            border: none; border-radius: 12px; font-size: 15px; font-weight: 600;
+            cursor: pointer; transition: background .15s;
+        }
+        .btn-login:hover { background: var(--primary-dark); }
+        .login-footer {
+            text-align: center; margin-top: 24px; padding-top: 20px;
+            border-top: 1px solid var(--border); font-size: 12px; color: var(--text-subtle);
+        }
+
+        /* ─── Search Modal ─── */
+        .search-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(15,23,42,.55); backdrop-filter: blur(6px);
+            z-index: 2000; padding: 80px 20px 20px;
+            align-items: flex-start; justify-content: center;
+        }
+        .search-overlay.open { display: flex; }
+        .search-modal {
+            background: var(--surface); border-radius: 20px; width: 100%; max-width: 600px;
+            box-shadow: 0 24px 64px rgba(0,0,0,.18); overflow: hidden;
+            animation: searchIn .15s ease;
+        }
+        @keyframes searchIn {
+            from { opacity: 0; transform: translateY(-14px) scale(.97); }
+            to   { opacity: 1; transform: translateY(0)   scale(1); }
+        }
+        .search-input-row {
+            display: flex; align-items: center; gap: 12px;
+            padding: 16px 20px; border-bottom: 1px solid var(--border);
+        }
+        .search-input-row .s-icon { color: var(--text-subtle); font-size: 16px; flex-shrink: 0; }
+        .search-input-row input {
+            flex: 1; border: none; outline: none; font-size: 16px;
+            font-family: 'Inter', sans-serif; color: var(--text); background: transparent;
+        }
+        .search-input-row input::placeholder { color: var(--text-subtle); }
+        .s-esc {
+            background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
+            padding: 3px 9px; font-size: 11px; color: var(--text-subtle);
+            cursor: pointer; font-family: 'JetBrains Mono', monospace;
+        }
+        .s-esc:hover { background: var(--border); }
+
+        .search-results-wrap { max-height: 400px; overflow-y: auto; }
+        .s-hint {
+            padding: 40px 20px; text-align: center; color: var(--text-subtle); font-size: 13px;
+        }
+        .s-hint i { font-size: 28px; margin-bottom: 10px; display: block; color: var(--border); }
+        .s-result {
+            display: flex; align-items: center; gap: 12px; padding: 12px 20px;
+            border-bottom: 1px solid var(--border); cursor: pointer;
+            text-decoration: none; transition: background .1s;
+        }
+        .s-result:last-child { border-bottom: none; }
+        .s-result:hover { background: var(--primary-light); }
+        .s-result:hover .r-name { color: var(--primary); }
+        .r-icon {
+            width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center; font-size: 14px;
+        }
+        .r-info { flex: 1; min-width: 0; }
+        .r-name {
+            font-size: 14px; font-weight: 500; color: var(--text);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .r-path { font-size: 11px; color: var(--text-subtle); margin-top: 2px; }
+        .r-size { font-size: 12px; color: var(--text-subtle); flex-shrink: 0; }
+        .r-action {
+            flex-shrink: 0; background: var(--primary); color: #fff;
+            border-radius: 20px; padding: 5px 12px; font-size: 12px; font-weight: 600;
+        }
+        .s-empty {
+            padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 14px;
+        }
+        .s-empty i { font-size: 32px; color: var(--text-subtle); margin-bottom: 10px; display: block; }
+        .s-spinner {
+            padding: 32px; text-align: center; color: var(--text-subtle);
+        }
+        .s-spinner i { font-size: 20px; animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ─── Responsive ─── */
+        @media (max-width: 680px) {
+            .top-nav { padding: 0 16px; }
+            .breadcrumb-bar { padding: 8px 16px; }
+            .page-body { padding: 14px; }
+            .nav-sub { display: none; }
+            .btn-search .kbd, .btn-search .s-label { display: none; }
+            .file-list-header,
+            .file-row { grid-template-columns: 1fr 90px; }
+            .col-type, .col-size,
+            .file-row .type-badge,
+            .file-row .size-cell { display: none; }
+            .login-card { padding: 28px 18px; }
         }
     </style>
 </head>
@@ -173,268 +346,344 @@
 
 <div class="toast-container" id="toastContainer"></div>
 
-<div id="accessDeniedModal" class="modal-overlay" onclick="closeAccessDeniedModal()">
-    <div class="access-denied-modal" onclick="event.stopPropagation()">
-        <i class="fas fa-lock"></i>
-        <h3>Access Denied</h3>
-        <p id="deniedMessage">You don't have permission to access this item. Please contact the administrator.</p>
-        <button onclick="closeAccessDeniedModal()">
-            <i class="fas fa-check"></i> Got it
-        </button>
-    </div>
-</div>
-
 {% if not logged_in %}
 
-<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; background: #f0f2f5;">
-    <div style="background: white; border-radius: 28px; padding: 48px 40px; max-width: 460px; width: 100%; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);">
-        
-        <div style="text-align: center;">
-            <div style="width: 96px; height: 96px; border-radius: 50%; margin: 0 auto 20px; overflow: hidden; background: #e8eef5; border: 3px solid #e2e8f0;">
-                <img src="{{ url_for('owner_image') }}" 
-                     alt="Coach Odighiode" 
-                     class="owner-img"
-                     onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fas fa-shield-alt\' style=\'font-size: 48px; color: #94a3b8; line-height: 96px;\'></i>';">
-            </div>
-            
-            <h1 style="font-size: 32px; font-weight: 700; color: #1a1f36; margin-bottom: 8px;">
-                Justice Vault
-            </h1>
-            <p style="color: #64748b; font-size: 15px; margin-bottom: 16px;">Secure document storage</p>
-            
-            <div style="background: #f1f5f9; display: inline-block; padding: 6px 18px; border-radius: 30px; margin-bottom: 32px;">
-                <i class="fas fa-user" style="color: #4f46e5; font-size: 13px;"></i>
-                <span style="font-size: 13px; color: #334155; margin-left: 6px;">Coach Odighiode</span>
-            </div>
-            
-            <p style="color: #475569; margin-bottom: 28px; font-size: 14px;">Enter your 8-character PIN</p>
+<!-- ═══════════ LOGIN PAGE ═══════════ -->
+<div class="login-wrap">
+    <div class="login-card">
+        <div class="login-header">
+            <div class="login-logo"><i class="fas fa-shield-alt"></i></div>
+            <h1 class="login-title">Justice Vault</h1>
+            <p class="login-sub">Enter your PIN to access your documents</p>
         </div>
-
-        <form method="POST" action="">
-            <div style="margin-bottom: 24px;">
-                <div style="position: relative;">
-                    <i class="fas fa-key" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #94a3b8;"></i>
-                    <input type="text" name="pin" placeholder="Enter PIN" required maxlength="8" 
-                        style="width: 100%; padding: 14px 16px 14px 46px; border: 1px solid #e2e8f0; border-radius: 14px; font-size: 15px; font-family: monospace; letter-spacing: 1px;">
+        <div class="login-body">
+            <form method="POST" action="">
+                <label for="pin">Access PIN</label>
+                <div class="inp-wrap">
+                    <i class="fas fa-key"></i>
+                    <input type="text" id="pin" name="pin" placeholder="8-character PIN"
+                           required maxlength="8" autocomplete="off" autofocus>
                 </div>
-            </div>
-            <button type="submit" class="btn-primary" style="width: 100%; padding: 14px; color: white; border: none; border-radius: 14px; font-weight: 600; font-size: 15px; cursor: pointer;">
-                <i class="fas fa-lock-open"></i> Access Vault
-            </button>
-        </form>
-
-        <div style="text-align: center; margin-top: 28px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
-            <p style="font-size: 12px; color: #94a3b8;">
-                <i class="fas fa-shield-alt"></i> Encrypted access | Authorized only
-            </p>
+                <button type="submit" class="btn-login">
+                    <i class="fas fa-lock-open"></i>&nbsp; Access Vault
+                </button>
+            </form>
+        </div>
+        <div class="login-footer">
+            <i class="fas fa-shield-alt"></i>&nbsp; End-to-end encrypted &nbsp;&middot;&nbsp; Authorized access only
         </div>
     </div>
 </div>
 
 {% else %}
 
-<div style="background: #f5f7fa; min-height: 100vh;">
-    
-    <div style="background: white; border-bottom: 1px solid #e2e8f0; padding: 20px 28px;">
-        <div style="max-width: 1400px; margin: 0 auto;">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
-                <div style="display: flex; align-items: center; gap: 16px;">
-                    <div style="width: 48px; height: 48px; border-radius: 50%; overflow: hidden; background: #e2e8f0;">
-                        <img src="{{ url_for('owner_image') }}" 
-                             alt="Coach" 
-                             class="owner-img"
-                             onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<i class=\'fas fa-gavel\' style=\'font-size: 24px; color: #94a3b8; line-height: 48px; text-align: center; display: block;\'></i>';">
-                    </div>
-                    <div>
-                        <h1 style="font-size: 22px; font-weight: 700; color: #1a1f36;">Justice Vault</h1>
-                        <div style="display: flex; gap: 12px; margin-top: 4px;">
-                            <span style="font-size: 12px; color: #64748b; background: #f1f5f9; padding: 2px 10px; border-radius: 20px;">
-                                <i class="fas fa-id-card"></i> {{ session.user_pin }}
-                            </span>
-                            <span style="font-size: 12px; color: #64748b;">
-                                <i class="fas fa-user"></i> Coach Odighiode
-                            </span>
-                        </div>
-                    </div>
-                </div>
-                <a href="{{ url_for('logout') }}" style="background: #f1f5f9; padding: 8px 20px; border-radius: 30px; text-decoration: none; color: #475569; font-size: 14px;">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </a>
-            </div>
-            
-            <div style="margin-top: 20px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 13px;">
-                <a href="{{ url_for('user_vault') }}" style="color: #4f46e5; text-decoration: none;">Home</a>
-                {% for crumb in breadcrumb %}
-                    <i class="fas fa-chevron-right" style="font-size: 10px; color: #cbd5e1;"></i>
-                    <span style="color: #64748b;">{{ crumb.name }}</span>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
+<!-- ═══════════ VAULT PAGE ═══════════ -->
 
-    <div style="max-width: 1400px; margin: 0 auto; padding: 32px 28px;">
-        
-        {% if folder_id %}
-        <div style="margin-bottom: 24px;">
-            <a href="{{ url_for('user_vault') }}" style="display: inline-flex; align-items: center; gap: 8px; background: white; padding: 8px 20px; border-radius: 30px; text-decoration: none; color: #475569; font-size: 14px; border: 1px solid #e2e8f0;">
-                <i class="fas fa-arrow-left"></i> Back to Root
-            </a>
+<!-- Search Modal -->
+<div class="search-overlay" id="searchOverlay" onclick="onOverlayClick(event)">
+    <div class="search-modal" id="searchModal">
+        <div class="search-input-row">
+            <i class="fas fa-search s-icon"></i>
+            <input type="text" id="searchInput"
+                   placeholder="Search files and folders…"
+                   autocomplete="off"
+                   oninput="onSearchInput(this.value)">
+            <button class="s-esc" onclick="closeSearch()">ESC</button>
         </div>
-        {% endif %}
-
-        <div style="background: white; border-radius: 16px; padding: 16px 24px; margin-bottom: 28px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border: 1px solid #e2e8f0;">
-            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                <div>
-                    <i class="fas fa-folder-open" style="color: #f59e0b;"></i>
-                    <span style="font-weight: 600; margin-left: 6px;">{{ items|length }}</span>
-                    <span style="color: #64748b; font-size: 13px;"> items</span>
-                </div>
-                <div>
-                    <i class="fas fa-shield-alt" style="color: #10b981;"></i>
-                    <span style="color: #64748b; font-size: 13px; margin-left: 6px;">Secure connection</span>
-                </div>
+        <div class="search-results-wrap" id="searchResults">
+            <div class="s-hint">
+                <i class="fas fa-search"></i>
+                Type at least 2 characters to search your vault
             </div>
-            <div style="font-size: 12px; color: #94a3b8;">
-                <i class="fas fa-clock"></i> Session active
-            </div>
-        </div>
-
-        {% if items %}
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px;">
-            {% for item in items %}
-            <div class="item-card" style="background: white; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
-                
-                <div style="background: #f8fafc; height: 160px; display: flex; align-items: center; justify-content: center; position: relative;">
-                    {% if not item.can_access %}
-                        <div style="position: absolute; top: 12px; right: 12px; background: #ef4444; color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;">
-                            <i class="fas fa-lock"></i> {% if item.type == 'folder' %}Restricted Folder{% else %}Restricted{% endif %}
-                        </div>
-                    {% endif %}
-                    
-                    {% if item.thumbnail_url %}
-                        <img src="{{ item.thumbnail_url }}" style="width: 100%; height: 100%; object-fit: cover;">
-                    {% elif item.type == 'folder' %}
-                        <div style="background: {% if item.can_access %}#fef3c7{% else %}#e2e8f0{% endif %}; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
-                            <i class="fas fa-folder-open" style="font-size: 60px; color: {% if item.can_access %}#d97706{% else %}#94a3b8{% endif %};"></i>
-                        </div>
-                    {% else %}
-                        <div style="background: {% if item.can_access %}#e0e7ff{% else %}#fee2e2{% endif %}; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
-                            <i class="fas {{ item.icon if item.icon else 'fa-file-alt' }}" style="font-size: 60px; color: {% if item.can_access %}#4f46e5{% else %}#ef4444{% endif %};"></i>
-                        </div>
-                    {% endif %}
-                </div>
-                
-                <div style="padding: 18px;">
-                    <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 6px; color: #1e293b; word-break: break-word;">{{ item.name }}</h3>
-                    {% if item.size %}
-                    <p style="color: #64748b; font-size: 12px; margin-bottom: 14px;">{{ (item.size / 1024 / 1024)|round(2) }} MB</p>
-                    {% elif item.link_url %}
-                    <p style="color: #64748b; font-size: 11px; margin-bottom: 14px;">
-                        <i class="fas fa-link"></i>files from sir Justice 
-                    </p>
-                    {% endif %}
-                    
-                    {% if item.type == 'folder' %}
-                        {% if item.can_access %}
-                            <a href="{{ url_for('user_vault', folder=item.id) }}" style="display: block; text-align: center; padding: 10px; background: #f1f5f9; border-radius: 40px; text-decoration: none; color: #334155; font-size: 14px;">
-                                <i class="fas fa-folder-open"></i> Open Folder
-                            </a>
-                        {% else %}
-                            <button onclick="showAccessDenied('{{ item.name }}', 'folder')" style="display: block; width: 100%; text-align: center; padding: 10px; background: #fef2f2; border-radius: 40px; color: #dc2626; font-size: 14px; border: none; cursor: pointer;">
-                                <i class="fas fa-lock"></i> Access Denied
-                            </button>
-                        {% endif %}
-                    {% elif item.can_access %}
-                        <a href="{{ url_for('download_item', item_id=item.id) }}" target="_blank" style="display: block; text-align: center; padding: 10px; background: #4f46e5; border-radius: 40px; text-decoration: none; color: white; font-size: 14px;">
-                            <i class="fas fa-download"></i> Download
-                        </a>
-                    {% else %}
-                        <div style="display: block; text-align: center; padding: 10px; background: #fef2f2; border-radius: 40px; color: #dc2626; font-size: 14px;">
-                            <i class="fas fa-lock"></i> No Access
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        
-        <div style="text-align: center; padding: 60px 40px; background: white; border-radius: 20px; border: 1px solid #e2e8f0;">
-            <i class="fas fa-folder-open" style="font-size: 64px; color: #cbd5e1;"></i>
-            <h3 style="font-size: 22px; font-weight: 600; margin: 20px 0 8px; color: #334155;">No items yet</h3>
-            <p style="color: #64748b;">This folder is empty</p>
-        </div>
-        {% endif %}
-
-        <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #e2e8f0; text-align: center;">
-            <div style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-bottom: 16px;">
-                <span style="font-size: 12px; color: #64748b;">
-                    <i class="fas fa-shield-alt"></i> AES-256
-                </span>
-                <span style="font-size: 12px; color: #64748b;">
-                    <i class="fas fa-user"></i> Coach Odighiode
-                </span>
-                <span style="font-size: 12px; color: #64748b;">
-                    <i class="fas fa-calendar"></i> 2026
-                </span>
-            </div>
-            <p style="font-size: 12px; color: #94a3b8;">
-                Justice Vault - Secure Digital Archive
-            </p>
         </div>
     </div>
 </div>
+
+<!-- Top Nav -->
+<nav class="top-nav">
+    <div class="nav-brand">
+        <div class="nav-icon"><i class="fas fa-shield-alt"></i></div>
+        <div>
+            <div class="nav-name">Justice Vault</div>
+            <div class="nav-sub">Secure Digital Archive</div>
+        </div>
+    </div>
+    <div class="nav-actions">
+        <button class="btn-search" onclick="openSearch()" title="Search (Ctrl+K)">
+            <i class="fas fa-search"></i>
+            <span class="s-label">Search</span>
+            <span class="kbd">Ctrl K</span>
+        </button>
+        <a href="{{ url_for('logout') }}" class="btn-logout">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </a>
+    </div>
+</nav>
+
+<!-- Breadcrumb -->
+<div class="breadcrumb-bar">
+    <i class="fas fa-folder-open" style="color:#d97706;font-size:12px;"></i>
+    <a href="{{ url_for('user_vault') }}">Root</a>
+    {% for crumb in breadcrumb %}
+        <span class="bc-sep"><i class="fas fa-chevron-right"></i></span>
+        <span class="{% if loop.last %}bc-active{% endif %}">{{ crumb.name }}</span>
+    {% endfor %}
+    <span class="pin-badge"><i class="fas fa-id-badge"></i> {{ session.user_pin }}</span>
+</div>
+
+<!-- Body -->
+<div class="page-body">
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <div class="toolbar-left">
+            {% if folder_id %}
+            <a href="{{ url_for('user_vault') }}" class="back-btn">
+                <i class="fas fa-arrow-left"></i> Back to Root
+            </a>
+            {% endif %}
+            <span class="item-count">
+                <strong>{{ items|length }}</strong> item{% if items|length != 1 %}s{% endif %}
+            </span>
+        </div>
+        <div class="secure-badge">
+            <i class="fas fa-lock" style="font-size:11px;"></i> Secure connection
+        </div>
+    </div>
+
+    {% if items %}
+    <div class="file-list">
+
+        <!-- Header row -->
+        <div class="file-list-header">
+            <div>Name</div>
+            <div class="col-type">Type</div>
+            <div class="col-size">Size</div>
+            <div style="text-align:right;">Action</div>
+        </div>
+
+        {% for item in items %}
+        <div class="file-row">
+
+            <!-- Name cell -->
+            <div class="file-name-cell">
+                {% if item.type == 'folder' %}
+                    <div class="file-icon fi-folder"><i class="fas fa-folder"></i></div>
+                {% elif item.icon == 'fa-file-pdf' %}
+                    <div class="file-icon fi-pdf"><i class="fas fa-file-pdf"></i></div>
+                {% elif item.icon == 'fa-file-image' %}
+                    <div class="file-icon fi-image"><i class="fas fa-file-image"></i></div>
+                {% elif item.icon == 'fa-file-video' %}
+                    <div class="file-icon fi-video"><i class="fas fa-file-video"></i></div>
+                {% elif item.icon == 'fa-file-audio' %}
+                    <div class="file-icon fi-audio"><i class="fas fa-file-audio"></i></div>
+                {% elif item.icon in ['fa-file-word','fa-file-excel','fa-file-powerpoint','fa-file-alt'] %}
+                    <div class="file-icon fi-doc"><i class="fas {{ item.icon }}"></i></div>
+                {% elif item.icon == 'fa-file-archive' %}
+                    <div class="file-icon fi-zip"><i class="fas fa-file-archive"></i></div>
+                {% elif item.link_url %}
+                    <div class="file-icon fi-link"><i class="fas fa-link"></i></div>
+                {% else %}
+                    <div class="file-icon fi-other"><i class="fas fa-file"></i></div>
+                {% endif %}
+
+                <div class="file-label">
+                    <div class="f-name" title="{{ item.name }}">{{ item.name }}</div>
+                    {% if item.link_url %}
+                        <div class="f-sub"><i class="fas fa-link" style="font-size:9px;"></i> External link</div>
+                    {% elif item.type == 'folder' %}
+                        <div class="f-sub">Folder</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Type badge -->
+            <div class="col-type">
+                {% if item.type == 'folder' %}
+                    <span class="type-badge">
+                        <i class="fas fa-folder" style="color:#d97706;font-size:10px;"></i> Folder
+                    </span>
+                {% elif item.link_url %}
+                    <span class="type-badge">
+                        <i class="fas fa-link" style="color:#059669;font-size:10px;"></i> Link
+                    </span>
+                {% else %}
+                    <span class="type-badge">
+                        {{ item.icon.replace('fa-file-','').replace('fa-file','File').upper() if item.icon else 'File' }}
+                    </span>
+                {% endif %}
+            </div>
+
+            <!-- Size -->
+            <div class="size-cell">
+                {% if item.size %}
+                    {{ item.size_formatted }}
+                {% else %}
+                    <span style="color:var(--text-subtle);">—</span>
+                {% endif %}
+            </div>
+
+            <!-- Action -->
+            <div class="action-cell">
+                {% if item.type == 'folder' %}
+                    <a href="{{ url_for('user_vault', folder=item.id) }}" class="btn-open">
+                        <i class="fas fa-folder-open"></i> Open
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('download_item', item_id=item.id) }}" target="_blank" class="btn-download">
+                        <i class="fas fa-download"></i> Download
+                    </a>
+                {% endif %}
+            </div>
+
+        </div>
+        {% endfor %}
+
+    </div>
+
+    {% else %}
+
+    <div class="empty-state">
+        <div class="e-icon"><i class="fas fa-folder-open"></i></div>
+        <h3>No files here</h3>
+        <p>This folder is currently empty</p>
+    </div>
+
+    {% endif %}
+
+    <div class="page-footer">
+        <span><i class="fas fa-shield-alt"></i> AES-256 Encrypted</span>
+        <span><i class="fas fa-calendar-alt"></i> 2026</span>
+        <span><i class="fas fa-lock"></i> Justice Vault</span>
+    </div>
+
+</div><!-- /.page-body -->
 {% endif %}
 
 <script>
-    function showAccessDenied(itemName, itemType) {
-        const modal = document.getElementById('accessDeniedModal');
-        const messageEl = document.getElementById('deniedMessage');
-        if (itemType === 'folder') {
-            messageEl.innerHTML = `You don't have permission to access the folder "<strong>${escapeHtml(itemName)}</strong>".<br><br>This folder has been restricted by the administrator.`;
-        } else {
-            messageEl.innerHTML = `You don't have permission to download "<strong>${escapeHtml(itemName)}</strong>".<br><br>This file has been restricted by the administrator.`;
-        }
-        modal.style.display = 'flex';
+/* ─── Toast ─── */
+function showToast(msg, type) {
+    var c = document.getElementById('toastContainer');
+    if (!c) return;
+    var t = document.createElement('div');
+    t.className = 'toast ' + type;
+    t.innerHTML = '<i class="fas ' + (type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle') + '"></i><span>' + msg + '</span>';
+    c.appendChild(t);
+    setTimeout(function () {
+        t.style.opacity = '0'; t.style.transition = 'opacity .2s';
+        setTimeout(function () { t.remove(); }, 200);
+    }, 3500);
+}
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            showToast('{{ message }}', '{{ category }}');
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+/* ─── Search Modal ─── */
+var _searchTimer = null;
+
+function openSearch() {
+    document.getElementById('searchOverlay').classList.add('open');
+    setTimeout(function () { document.getElementById('searchInput').focus(); }, 50);
+}
+
+function closeSearch() {
+    document.getElementById('searchOverlay').classList.remove('open');
+    document.getElementById('searchInput').value = '';
+    document.getElementById('searchResults').innerHTML =
+        '<div class="s-hint"><i class="fas fa-search"></i>Type at least 2 characters to search your vault</div>';
+}
+
+function onOverlayClick(e) {
+    if (e.target === document.getElementById('searchOverlay')) closeSearch();
+}
+
+function onSearchInput(val) {
+    clearTimeout(_searchTimer);
+    var q = val.trim();
+    if (q.length < 2) {
+        document.getElementById('searchResults').innerHTML =
+            '<div class="s-hint"><i class="fas fa-search"></i>Type at least 2 characters to search your vault</div>';
+        return;
     }
-    
-    function closeAccessDeniedModal() {
-        document.getElementById('accessDeniedModal').style.display = 'none';
+    document.getElementById('searchResults').innerHTML =
+        '<div class="s-spinner"><i class="fas fa-circle-notch"></i></div>';
+    _searchTimer = setTimeout(function () { doSearch(q); }, 280);
+}
+
+function doSearch(q) {
+    fetch('/vault/search?q=' + encodeURIComponent(q))
+        .then(function (r) { return r.json(); })
+        .then(function (data) { renderResults(data.results, q); })
+        .catch(function () {
+            document.getElementById('searchResults').innerHTML =
+                '<div class="s-empty"><i class="fas fa-exclamation-triangle"></i>Search failed. Try again.</div>';
+        });
+}
+
+var _iconMap = {
+    'fa-folder': 'fi-folder',
+    'fa-file-pdf': 'fi-pdf',
+    'fa-file-image': 'fi-image',
+    'fa-file-video': 'fi-video',
+    'fa-file-audio': 'fi-audio',
+    'fa-file-word': 'fi-doc',
+    'fa-file-excel': 'fi-doc',
+    'fa-file-powerpoint': 'fi-doc',
+    'fa-file-alt': 'fi-doc',
+    'fa-file-archive': 'fi-zip'
+};
+
+function renderResults(results, q) {
+    var wrap = document.getElementById('searchResults');
+    if (!results || results.length === 0) {
+        wrap.innerHTML = '<div class="s-empty"><i class="fas fa-search"></i>No results found for &ldquo;<strong>' + esc(q) + '</strong>&rdquo;</div>';
+        return;
     }
-    
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-    
-    function showToast(message, type) {
-        var container = document.getElementById('toastContainer');
-        if (!container) return;
-        var toast = document.createElement('div');
-        toast.className = 'toast ' + type;
-        toast.innerHTML = '<i class="fas ' + (type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle') + '"></i><span>' + message + '</span>';
-        container.appendChild(toast);
-        setTimeout(function() {
-            toast.style.opacity = '0';
-            setTimeout(function() { toast.remove(); }, 200);
-        }, 3500);
-    }
-    
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            closeAccessDeniedModal();
-        }
+    var html = '';
+    results.forEach(function (r) {
+        var iconCls = r.type === 'folder' ? 'fi-folder' : (_iconMap[r.icon] || 'fi-other');
+        if (r.link_url && r.type !== 'folder') iconCls = 'fi-link';
+        var href = r.type === 'folder' ? ('/vault?folder=' + r.id) : ('/download/' + r.id);
+        var target = r.type === 'folder' ? '' : 'target="_blank"';
+        var action = r.type === 'folder'
+            ? '<span class="r-action"><i class="fas fa-arrow-right"></i> Open</span>'
+            : '<span class="r-action"><i class="fas fa-download"></i> Get</span>';
+        var sizeHtml = (r.size_formatted && r.size_formatted !== 'Unknown')
+            ? '<div class="r-size">' + esc(r.size_formatted) + '</div>' : '';
+
+        html += '<a class="s-result" href="' + href + '" ' + target + '>';
+        html += '<div class="r-icon ' + iconCls + '"><i class="fas ' + r.icon + '"></i></div>';
+        html += '<div class="r-info">';
+        html += '<div class="r-name">' + esc(r.name) + '</div>';
+        html += '<div class="r-path"><i class="fas fa-map-marker-alt" style="font-size:9px;margin-right:3px;"></i>' + esc(r.folder_path) + '</div>';
+        html += '</div>';
+        html += sizeHtml;
+        html += action;
+        html += '</a>';
     });
-    
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                showToast('{{ message }}', '{{ category }}');
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
+    wrap.innerHTML = html;
+}
+
+function esc(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+}
+
+/* ─── Keyboard shortcuts ─── */
+document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        openSearch();
+    }
+    if (e.key === 'Escape') closeSearch();
+});
 </script>
 
 </body>
-    </html>
+</html>
