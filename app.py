@@ -851,22 +851,22 @@ def user_vault():
                 flash('You do not have permission to access this folder.', 'error')
                 return redirect(url_for('user_vault'))
             
-            items = Item.query.filter_by(parent_id=parent_id_int).order_by(Item.type.desc(), Item.name).all()
+            # Filter out revoked items — they must not appear at all
+            all_folder_items = Item.query.filter_by(parent_id=parent_id_int).order_by(Item.type.desc(), Item.name).all()
+            items = [item for item in all_folder_items if item.id not in restricted_items]
         except (ValueError, TypeError):
-            items = Item.query.filter_by(parent_id=None).order_by(Item.type.desc(), Item.name).all()
+            all_root_items = Item.query.filter_by(parent_id=None).order_by(Item.type.desc(), Item.name).all()
+            items = [item for item in all_root_items if item.id not in restricted_items]
             parent_id = None
     else:
         all_root_items = Item.query.filter_by(parent_id=None).order_by(Item.type.desc(), Item.name).all()
-        items = [item for item in all_root_items if item.id not in restricted_items or item.type == 'folder']
+        # Hide ALL revoked items — files AND folders
+        items = [item for item in all_root_items if item.id not in restricted_items]
         parent_id = None
     
     items_with_access = []
     for item in items:
-        if item.type == 'folder':
-            can_access = item.id not in restricted_items
-        else:
-            can_access = item.id not in restricted_items
-        
+        # All items here are accessible — revoked ones are already excluded above
         thumbnail_url = None
         if item.thumbnail_path:
             thumbnail_url = url_for('serve_thumbnail', filename=os.path.basename(item.thumbnail_path))
@@ -878,7 +878,7 @@ def user_vault():
             'thumbnail_url': thumbnail_url, 
             'size': item.size,
             'size_formatted': format_file_size(item.size),
-            'can_access': can_access,
+            'can_access': True,
             'icon': 'fa-folder' if item.type == 'folder' else get_file_icon(item.mime_type),
             'link_url': item.link_url
         })
@@ -902,6 +902,62 @@ def user_vault():
     
     return render_template('user_vault.html', logged_in=True, items=items_with_access,
                          folder_id=parent_id, breadcrumb=breadcrumb)
+
+@app.route('/vault/search')
+def vault_search():
+    """Search accessible items for the current user."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+
+    query = request.args.get('q', '').strip()
+    if len(query) < 2:
+        return jsonify({'results': []})
+
+    user_id = session['user_id']
+    restricted_items = get_user_permissions(user_id)
+
+    matched_items = Item.query.filter(Item.name.ilike(f'%{query}%')).limit(40).all()
+
+    search_results = []
+    for item in matched_items:
+        if item.id in restricted_items:
+            continue
+
+        # Walk parent chain — skip if any ancestor folder is restricted
+        accessible = True
+        folder_path_parts = []
+        current_parent_id = item.parent_id
+        while current_parent_id:
+            parent = Item.query.get(current_parent_id)
+            if not parent:
+                break
+            if parent.id in restricted_items:
+                accessible = False
+                break
+            folder_path_parts.insert(0, parent.name)
+            current_parent_id = parent.parent_id
+
+        if not accessible:
+            continue
+
+        folder_path = ' / '.join(folder_path_parts) if folder_path_parts else 'Root'
+
+        search_results.append({
+            'id': item.id,
+            'name': item.name,
+            'type': item.type,
+            'parent_id': item.parent_id,
+            'size_formatted': format_file_size(item.size),
+            'icon': 'fa-folder' if item.type == 'folder' else get_file_icon(item.mime_type),
+            'folder_path': folder_path,
+            'link_url': item.link_url
+        })
+
+        if len(search_results) >= 20:
+            break
+
+    return jsonify({'results': search_results})
+
 
 @app.route('/download/<int:item_id>')
 def download_item(item_id):
