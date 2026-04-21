@@ -313,6 +313,16 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+# ==================== WWW REDIRECT ====================
+@app.before_request
+def redirect_www():
+    """Redirect www.domain.com → domain.com (no-www canonical)."""
+    host = request.host or ''
+    if host.startswith('www.'):
+        non_www = host[4:]
+        url = request.url.replace('://' + host, '://' + non_www, 1)
+        return redirect(url, code=301)
+
 # ==================== HEALTH ROUTES ====================
 @app.route('/health')
 def health_check():
@@ -653,9 +663,8 @@ def upload_item():
             flash('Please enter a valid URL starting with http:// or https://', 'error')
             return redirect(url_for('admin_dashboard', folder_id=parent_id))
         
-        if is_folder_link(link_url):
-            flash('⚠️ This appears to be a folder link. Please use direct file links only.', 'error')
-            return redirect(url_for('admin_dashboard', folder_id=parent_id))
+        # Detect whether this is a folder link so users get "Open Folder" instead of Download
+        detected_mime = 'link/folder' if is_folder_link(link_url) else None
         
         thumbnail_path = None
         if picture and picture.filename:
@@ -672,11 +681,12 @@ def upload_item():
             thumbnail_path=thumbnail_path, 
             parent_id=parent_id, 
             size=None, 
-            mime_type=None
+            mime_type=detected_mime
         )
         db.session.add(item)
         db.session.commit()
-        flash(f'🔗 Link file "{name}" added successfully!', 'success')
+        label = '📂 Folder link' if detected_mime == 'link/folder' else '🔗 Link file'
+        flash(f'{label} "{name}" added successfully!', 'success')
     else:
         flash('Please provide a file or valid URL', 'error')
     
@@ -880,7 +890,8 @@ def user_vault():
             'size_formatted': format_file_size(item.size),
             'can_access': True,
             'icon': 'fa-folder' if item.type == 'folder' else get_file_icon(item.mime_type),
-            'link_url': item.link_url
+            'link_url': item.link_url,
+            'is_folder_link': bool(item.link_url and (item.mime_type == 'link/folder' or is_folder_link(item.link_url)))
         })
     
     breadcrumb = []
@@ -950,7 +961,8 @@ def vault_search():
             'size_formatted': format_file_size(item.size),
             'icon': 'fa-folder' if item.type == 'folder' else get_file_icon(item.mime_type),
             'folder_path': folder_path,
-            'link_url': item.link_url
+            'link_url': item.link_url,
+            'is_folder_link': bool(item.link_url and (item.mime_type == 'link/folder' or is_folder_link(item.link_url)))
         })
 
         if len(search_results) >= 20:
@@ -987,6 +999,10 @@ def download_item(item_id):
     db.session.commit()
     
     if item.link_url and not item.file_path:
+        # Google Drive / external FOLDER link — send user straight to it
+        if item.mime_type == 'link/folder' or is_folder_link(item.link_url):
+            return redirect(item.link_url)
+        
         download_url = item.link_url
         if 'drive.google.com' in download_url:
             download_url = get_google_drive_direct_url(download_url)
